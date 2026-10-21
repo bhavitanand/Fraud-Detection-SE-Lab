@@ -8,7 +8,7 @@ Automated suspicious-transaction triage reduces dependence on manual review and 
 
 ## 2. Requirements and SRS summary
 
-**Actors:** gateway client (represented by a REST caller), analyst workflow, administrator workflow. **Implemented functional requirements:** validate and score transaction requests; persist transactions; list alerts/history; record fraud/false-positive verdicts; block/unblock synthetic tokens; configure amount/country rules and thresholds; expose descriptive counts and an audit log. **Quality constraints implemented:** local setup, schema validation, heuristic reason strings, SQLite persistence, synthetic-only identifiers, HTTP JSON API. **Not implemented from the practical-file/SRS target:** trained supervised model, behavioral profile beyond same-day transaction count, velocity windows other than same-day count, analyst assignment, cardholder SMS/e-mail/step-up verification, retraining, user/role management, TLS/authentication, performance guarantees, payment authorization, or PCI compliance. The app only advises; false-positive review records a label and does not change the original decision. Config cutoffs must be ordered `approve_max < hold_max`; scores are in [0,1].
+**Actors:** gateway client (represented by a REST caller or the "Submit synthetic transaction" form), analyst, administrator. **Implemented functional requirements:** validate and score transaction requests with per-factor explanations; persist transactions; list/search/filter/sort/paginate transactions and alerts; transaction investigation view (score factors, token history, audit trail); record fraud/false-positive verdicts once per alert (a second attempt returns 409); block/unblock synthetic tokens (a confirmed-fraud verdict blocks automatically); configure and server-validate thresholds, high-amount, blocked countries and velocity limit; descriptive reports with date/source filters and CSV export; append-only audit log; sign-in with analyst/administrator roles enforced by the backend (Argon2 password hashes, signed expiring tokens, per-user lockout; accounts created with `python -m app.cli create-user`). **Quality constraints implemented:** local setup without Docker, schema validation (PAN-like values rejected), explicit transaction boundaries, versioned schema migrations, synthetic-only identifiers, consistent JSON error shape, security headers and restricted CORS. **Not implemented from the practical-file/SRS target:** trained supervised model (no labelled dataset exists in the repository; none was downloaded), behavioral profile beyond a rolling 24-hour transaction count on the same token, analyst assignment/case queues, cardholder SMS/e-mail/step-up verification, retraining, user-management screens (CLI only), TLS, password reset, multi-factor authentication, performance guarantees, payment authorization, or PCI compliance. The app only advises; a false-positive verdict records a label and does not change the original decision. Config cutoffs must be ordered `approve_max < hold_max`; scores are in [0,1]. **Behaviour changes versus the first version:** velocity is a rolling 24 hours (was same UTC day); approved transactions carry review status `NOT_REQUIRED` and cannot be reviewed; `/api/transactions` and `/api/audit` return paginated objects; transaction `reasons` is a JSON list.
 
 ## 3. Function-oriented diagrams
 
@@ -75,7 +75,7 @@ flowchart TD
  Review --> Audit[Audit writer]
  Admin --> Store
  Admin --> Audit
- UI[Dashboard HTML/JS] --> API
+ UI[React SPA] --> API
 ```
 
 ## 4. ER diagram
@@ -92,11 +92,36 @@ erDiagram
   real score
   string decision
   json reasons
+  json factors
   string review
+  string scorer
+  string source
+  datetime reviewed_at
+  string reviewed_by
+  string review_note
  }
  CARD {
   string token PK
   int blocked
+  datetime blocked_at
+  string block_reason
+  string blocked_by
+ }
+ USERS {
+  string username PK
+  string password_hash
+  string role
+  datetime created
+  int disabled
+ }
+ META {
+  string key PK
+  string value
+ }
+ SCHEMA_VERSION {
+  int version PK
+  string description
+  datetime applied_at
  }
  CONFIG {
   string key PK
@@ -108,11 +133,12 @@ erDiagram
   string actor
   string action
   string detail
+  string target
  }
  CARD ||--o{ TRANSACTION : used_for
 ```
 
-This is a logical relationship: the implementation has no separate alert or user table. Alerts are the non-APPROVE transaction rows; review status is stored on the transaction. The schema also has no explicit foreign-key constraint.
+This is a logical relationship: there is no separate alert table. Alerts are the non-APPROVE transaction rows; review status is stored on the transaction (`OPEN`, `CONFIRMED_FRAUD`, `FALSE_POSITIVE`, or `NOT_REQUIRED` for approvals). `source` is `SEED` for synthetic demo rows and `LIVE` for rows submitted through the API. `META` holds the generated token-signing secret and the seed marker. `SCHEMA_VERSION` records applied migrations (currently 2). Foreign keys are not declared between transactions and cards; the link is by token.
 
 ## 5. Use case diagram
 ```mermaid
@@ -200,7 +226,20 @@ stateDiagram-v2
  FalsePositive --> [*]
 ```
 
-The implemented review verdict is stored as `CONFIRMED_FRAUD` or `FALSE_POSITIVE`; neither transition changes the original APPROVE/HOLD/DECLINE value. A confirmed-fraud verdict blocks the token. Settlement/release states in the reference are outside this demonstrator.
+Review status is a one-way state machine enforced by the server inside a database transaction:
+
+```mermaid
+stateDiagram-v2
+ [*] --> NOT_REQUIRED: decision APPROVE
+ [*] --> OPEN: decision HOLD or DECLINE
+ OPEN --> CONFIRMED_FRAUD: fraud verdict (blocks token)
+ OPEN --> FALSE_POSITIVE: false positive verdict
+ CONFIRMED_FRAUD --> [*]
+ FALSE_POSITIVE --> [*]
+ NOT_REQUIRED --> [*]
+```
+
+A verdict neither changes the original APPROVE/HOLD/DECLINE value nor can it be changed afterwards (409 `already_reviewed`); reviewing an approval returns 409 `no_alert`. Settlement/release states in the reference are outside this demonstrator.
 
 ```mermaid
 flowchart TD
@@ -228,7 +267,7 @@ sequenceDiagram
  G->>API: POST transaction
  API->>API: Validate and check blocked token
  API->>S: score(transaction)
- S->>DB: Read config and same-day token history
+ S->>DB: Read config and rolling 24-hour token history
  DB-->>S: Rules and count
  S-->>API: score, decision, reasons
  API->>DB: Save transaction and audit
@@ -247,13 +286,15 @@ Communication view: `1 Gateway → API: submit`; `2 API → Scorer: evaluate`; `
 ## 9. Component diagram
 ```mermaid
 flowchart LR
- Browser[Dashboard: static HTML/JS] -->|JSON| API[FastAPI routes]
- API --> Validate[Pydantic validation]
- API --> Scorer[Heuristic scoring and thresholds]
- API --> Repo[SQLite data access: config, history and persistence]
- Repo --> DB[(SQLite file)]
- API --> Audit[Audit event writer]
- Scorer --> Config[Read configuration and recent count from SQLite]
+ Browser[React + TypeScript SPA built with Vite] -->|JSON over /api| API[app/api: FastAPI routes + auth dependencies]
+ API --> Schemas[app/schemas: Pydantic request validation]
+ API --> Services[app/services: ingest, review, cards, config, reports, auth]
+ Services --> Scorer[Scorer interface: HeuristicScorer today, trained model later]
+ Services --> Repo[app/repositories: all SQL]
+ Repo --> DB[(SQLite file, WAL)]
+ Services --> Audit[Audit rows written in the same transaction]
+ Boot[app/db: migrations, seed, init] --> DB
+ Browser -. production build served as static files .-> API
 ```
 
 ## 10. Deployment diagram
@@ -269,15 +310,15 @@ flowchart LR
  Gateway[Optional synthetic API client] -->|localhost HTTP| Server
 ```
 
-The practical file describes a production-equivalent browser/React, API gateway, application server, model server, Redis and PostgreSQL plus notification provider. Those are not deployed by this MVP. Local HTTP is for localhost demonstration only.
+The practical file describes a production-equivalent browser/React, API gateway, application server, model server, Redis and PostgreSQL plus notification provider. Those are not deployed by this MVP. Local HTTP is for localhost demonstration only. For development the Vite server (port 5173) proxies `/api` to Uvicorn (port 8000); for the demo, the `npm run build` output in `frontend/dist` is served by FastAPI itself on one port. The default bind address is 127.0.0.1.
 
 ## 11. Testing
 
-`tests/test_smoke.py` contains five API integration tests that call the FastAPI ASGI app directly and create a fresh SQLite file in the OS temporary directory for each test. The suite requires the declared FastAPI/Starlette/Pydantic dependencies, but no HTTP test-client package or separately running server. Last verified command: `python -m unittest discover -s tests -v`; **5 tests passed** (2026-10-20). Covered: dashboard/health, validation and threshold ordering, score range and persistence, analyst verdicts, fraud-triggered token block, blocked-token rejection, false-positive persistence, admin block/unblock and audit. This is functional smoke coverage, not exhaustive unit, system, load, security, model-quality or accuracy testing. No labelled evaluation dataset exists, so precision/recall/F1/PR-AUC are not measured. The tests do not claim to cover every individual rule branch or frontend interaction.
+Backend (`pytest`): `tests/test_smoke.py` keeps the five original scenarios (ported from a hand-written ASGI client to pytest fixtures; assertions unchanged except the paginated response shape); `test_scoring.py` covers factor points, cap, decision boundaries and swapping the scorer; `test_workflows.py` covers input validation, review state transitions, concurrent reviews, card side effects, configuration, filters/pagination, report arithmetic, CSV formula neutralisation and security headers; `test_db_and_failures.py` covers idempotent init, per-test isolation, in-place migration of a legacy database, 503 on database failure, rollback on a failed audit write and static-file traversal; `test_auth.py` covers 401/403, role enforcement, lockout, hashing and absence of default users. Every test uses its own temporary SQLite file. Frontend (`vitest`): API client error handling, rule-form validation, the investigation flow with confirmation dialog and 409 recovery, role-gated card blocking, and text-only rendering of untrusted values; `npm run build` runs `tsc` in strict mode. Exact counts and results from the last run are recorded in `STATUS.md`. This is functional coverage, not load, penetration, accessibility-audit or model-quality testing. No labelled evaluation dataset exists, so precision/recall/F1/PR-AUC are not measured and the app reports none.
 
 ## 12. Function point effort estimate (assumption-based)
 
-Illustrative unadjusted FP estimate using average complexity weights (EI=4, EO=5, EQ=4, ILF=10, EIF=7): inputs: transaction, verdict, config, block/unblock = 4 EI (16); outputs: score/decision, reports, history/alerts, audit = 4 EO (20); queries: health/config/cards/queue = 4 EQ (16); internal logical files: transaction, cards, config, audit = 4 ILF (40); external interfaces = 0 EIF (0). **Total 92 UFP.** This is a student planning estimate, not measured size; screens and endpoint overlap are simplified. At assumed 10 FP/person-month, effort ≈9.2 person-months; for 2 people ≈4.6 months before calendar overlap, testing and academic documentation. The local MVP is substantially smaller than this conceptual scope.
+Illustrative unadjusted FP estimate using average complexity weights (EI=4, EO=5, EQ=4, ILF=10, EIF=7): inputs: transaction, verdict, config, block/unblock, sign-in = 5 EI (20); outputs: score/decision, reports, alerts, audit, CSV export = 5 EO (25); queries: health, config/rules, cards, review queue, transaction list, transaction detail = 6 EQ (24); internal logical files: transaction, cards, config, audit, users = 5 ILF (50); external interfaces = 0 EIF (0). **Total 119 UFP** (92 before the overhaul). This is a student planning estimate, not measured size; screens and endpoint overlap are simplified. At assumed 10 FP/person-month, effort ≈11.9 person-months; for 2 people ≈6 months before calendar overlap, testing and academic documentation. The local MVP is substantially smaller than this conceptual scope.
 
 ## 13. Gantt / PERT timeline
 

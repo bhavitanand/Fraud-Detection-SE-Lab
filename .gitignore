@@ -15,3 +15,4 @@ coverage/
 *.sqlite
 *.db
 logs/
+frontend/.env.local

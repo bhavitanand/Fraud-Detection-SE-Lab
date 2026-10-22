@@ -407,6 +407,26 @@ def fp_table(name, items, label):
     return TABLE(rows, [5600, 1800, 1626], size=19, align_right={2})
 
 
+def fp_chart():
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    kinds = [("EI", EI), ("EO", EO), ("EQ", EQ), ("ILF", ILF), ("EIF", EIF)]
+    fig, (a, b) = plt.subplots(1, 2, figsize=(9, 3.4), dpi=170, gridspec_kw={"width_ratios": [3, 2]})
+    vals = [sum(x[2] for x in g) for _, g in kinds]
+    a.bar([k for k, _ in kinds], vals, color="#7FA3CF", edgecolor="#333333")
+    for i, v in enumerate(vals):
+        a.text(i, v + 1, str(v), ha="center", fontsize=8)
+    a.set_ylabel("Unadjusted FP", fontsize=9); a.set_title(f"UFP by function type (total {ufp})", fontsize=10); a.set_ylim(0, max(vals) * 1.18)
+    b.bar(["FP-based", "COCOMO"], [effort, cocomo_e], color=["#7FA3CF", "#C9D6E8"], edgecolor="#333333")
+    for i, v in enumerate([effort, cocomo_e]):
+        b.text(i, v + 0.3, f"{v}", ha="center", fontsize=8)
+    b.set_ylabel("Person-months", fontsize=9); b.set_title("Effort estimates compared", fontsize=10); b.set_ylim(0, max(effort, cocomo_e) * 1.2)
+    fig.tight_layout(); fig.savefig(FIGS / "fig_12_1_fp.png"); plt.close(fig)
+
+
+fp_chart()
+
 exp12 = [
     new_heading("Experiment 12: Effort Estimation using Function Point (FP) Analysis"),
     AIM("To estimate the size and effort of the Credit Card Fraud Detection System using Function Point analysis."),
@@ -418,6 +438,7 @@ exp12 = [
     fp_table("ILF", ILF, "Internal logical files"), SPACER(), fp_table("EIF", EIF, "External interface file"), SPACER(),
     TABLE([["Function type", "Count", "UFP"]] + [[n, str(len(g)), str(sum(x[2] for x in g))] for n, g in (("EI", EI), ("EO", EO), ("EQ", EQ), ("ILF", ILF), ("EIF", EIF))] + [["**Unadjusted function points (UFP)**", "", f"**{ufp}**"]],
           [5600, 1800, 1626], size=19, align_right={1, 2}), SPACER(),
+    "FIG:fig_12_1_fp.png:15.0", CAPTION("Fig. 12.1: Unadjusted function points by function type, and FP-based versus COCOMO effort"),
     P("Complexity ratings are the team’s judgement from the number of data element types and files referenced by each function; they are assumptions, not measurements."),
     H2("General system characteristics"),
     TABLE([["No.", "Characteristic", "Rating (0 to 5)", "Reason"]] + [[str(i + 1), g[0], str(g[1]), g[2]] for i, g in enumerate(GSC)] + [["", "**Total degree of influence (TDI)**", f"**{tdi}**", ""]], [600, 3000, 1400, 4026], size=19), SPACER(),
@@ -464,7 +485,17 @@ appendix = [
     P("**Honest limits to state during the viva:** synthetic data only; the model was trained on a 2013 European dataset and applies to benchmark-feature transactions; notifications are simulated; SQLite instead of PostgreSQL; no TLS; not a payment system and not PCI DSS certified."),
 ]
 
-add(exp11 + exp12 + exp13 + appendix)
+appendix_b = [
+    new_heading("Appendix B: Screenshots of the Working Demonstrator"),
+    P("Screenshots taken from the running application (synthetic demo data, Chromium at 1440 × 900). The page-by-page set is in docs/screenshots/ in the repository.", after=80),
+    "FIG:../../screenshots/02-overview.png:14.5", CAPTION("Fig. B.1: Overview: volume, decisions, backlog and flagged value in ₹"),
+    "FIG:../../screenshots/04-alerts.png:14.5", CAPTION("Fig. B.2: Alerts and cases: queue ordered by risk, with assignment"),
+    "FIG:../../screenshots/12-transaction-detail.png:14.5", CAPTION("Fig. B.3: Transaction page: score factors, cardholder, history, audit trail and verdict"),
+    "FIG:../../screenshots/08-models.png:14.5", CAPTION("Fig. B.4: ML model page: held-out metrics, data and method, caveats"),
+    "FIG:../../screenshots/09-reports.png:12.5", CAPTION("Fig. B.5: Reports: totals, rates, analyst productivity and daily trend"),
+]
+
+add(exp11 + exp12 + exp13 + appendix + appendix_b)
 out = HERE / "SE_Lab_File_Credit_Card_Fraud_Detection_updated.docx"
 doc.save(str(out))
 print("saved", out.name, "| UFP", ufp, "VAF", vaf, "AFP", afp, "effort", effort, "| COCOMO", cocomo_e, cocomo_t)

@@ -5,6 +5,21 @@ A Software Engineering Lab project (CIC-357): FastAPI + SQLite back end, React/T
 > **Not a payment system.** Card identifiers are synthetic tokens; blocking a token only changes this app's local behaviour. No bank or network integration, no PCI DSS certification, not production-ready.
 > **Scoring honesty:** live (Indian) transactions are scored by rules. The ML model was trained on the public ULB/Kaggle benchmark (2013, European cardholders, EUR, anonymised PCA features), so it applies only to transactions carrying those 28 features (benchmark replay). Its measured, held-out results are on the **ML model** page and in `ml/artifacts/*.json`.
 
+![Overview page](docs/screenshots/02-overview.png)
+
+## Documentation
+| Doc | What it covers |
+|---|---|
+| [docs/SETUP.md](docs/SETUP.md) | Step-by-step install and run (Windows, macOS, Linux), options, troubleshooting |
+| [docs/DEMO.md](docs/DEMO.md) | 6-minute live demo script and likely viva questions |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layers, request flow, data model, security design |
+| [docs/API.md](docs/API.md) | Every endpoint with role and example |
+| [docs/lab-alignment.md](docs/lab-alignment.md) | The 13 lab experiments mapped to the code |
+| [docs/lab-file/](docs/lab-file) | The practical file (.docx) and the scripts that rebuild it |
+| [docs/screenshots/](docs/screenshots) | One screenshot per page |
+| [STATUS.md](STATUS.md) | Current verified state and known limits |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
+
 ## Quick start (single port, production build)
 ```bash
 python -m venv .venv && source .venv/bin/activate        # Windows: .venv\Scripts\activate
@@ -14,7 +29,7 @@ python -m app.cli create-user --email you@example.com --name "Your Name" --role 
 uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 Open http://127.0.0.1:8000. On Windows, `run-demo.ps1` does the same. API docs: `/docs`.
-First start creates `fraud_demo.sqlite` with ~130 synthetic transactions (14 Indian cardholders, 18 merchants), alerts, cardholder messages and the shipped model.
+First start creates `fraud_demo.sqlite` with 129 synthetic transactions (14 Indian cardholders, 19 merchants), alerts, cardholder messages and the shipped model.
 
 **Sign-in.** E-mail + password. Optional second step: set `FRAUD_LOGIN_OTP=true` and a 6-digit code is e-mailed (5-minute expiry, 5 attempts, single use). With the default `FRAUD_OTP_DELIVERY=console` the code is printed in the server terminal (development only); set `FRAUD_OTP_DELIVERY=smtp` plus `FRAUD_SMTP_HOST/PORT/USER/PASSWORD/FROM` for real e-mail. SMS/phone OTP is not implemented (it needs a paid provider). **No-login demo:** `FRAUD_AUTH_REQUIRED=false` (everyone is administrator `local-demo`; only on a machine you alone use).
 
@@ -75,7 +90,7 @@ Last measured run: see `STATUS.md`. Tests use temporary databases and never touc
 `docs/lab-file/` rebuilds the practical file from the submitted original: `python docs/lab-file/diagrams.py && python docs/lab-file/build_lab_file.py`. `docs/lab-alignment.md` maps every experiment to the code.
 
 ## Security notes and limits
-PAN-like values are rejected; no CVV field. Argon2 password hashes; signed 8-hour tokens in `sessionStorage`; sign-in throttling is per account and in memory. Audit log is tamper-evident (hash chain), not tamper-proof. No TLS, password-reset e-mail, MFA beyond the e-mail code, or SMS. SQLite only. Not load-tested. The UI has been verified by component tests and a served-build smoke test, not by automated browser tests or a screen reader.
+PAN-like values are rejected; no CVV field. Argon2 password hashes; signed 8-hour tokens in `sessionStorage`; sign-in throttling is per account and in memory. Audit log is tamper-evident (hash chain), not tamper-proof. No TLS, password-reset e-mail, MFA beyond the e-mail code, or SMS. SQLite only. Not load-tested. The UI is covered by component tests and was opened page by page in headless Chromium (screenshots in `docs/screenshots/`); there is no automated end-to-end suite and no screen-reader audit.
 
 ## Troubleshooting
 *Frontend not built* → `cd frontend && npm install && npm run build`. *No account* → `python -m app.cli create-user …` or `FRAUD_AUTH_REQUIRED=false`. *ML page says scikit-learn missing* → `pip install scikit-learn joblib numpy`. *503 / database locked* → another process holds the SQLite file. *Dev UI cannot reach server* → start uvicorn on :8000.

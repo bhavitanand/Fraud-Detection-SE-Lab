@@ -23,7 +23,7 @@ export function Trend({ data }: { data: Report["trend"] }) {
   if (data.length < 2) return <Empty>A trend needs at least two days of data.</Empty>;
   const W = 560, H = 150, pad = 22, max = Math.max(...data.map((d) => d.total), 1), bw = (W - pad) / data.length;
   return (
-    <svg viewBox={`0 0 ${W} ${H + 18}`} width="100%" role="img" aria-label="Daily transactions with the flagged portion highlighted">
+    <svg viewBox={`0 0 ${W} ${H + 18}`} width="100%" style={{ maxWidth: 680, display: "block" }} role="img" aria-label="Daily transactions with the flagged portion highlighted">
       <line x1={pad} x2={W} y1={H} y2={H} stroke="var(--line-strong)" />
       <text x={0} y={12} fontSize="10" fill="var(--ink-3)">{max}</text>
       {data.map((d, i) => {

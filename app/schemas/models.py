@@ -27,10 +27,28 @@ def _reject_pan(value: str) -> str:
 class TransactionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     card_token: str = Field(min_length=4, max_length=40, pattern=TOKEN_RE)
-    amount: float = Field(gt=0, le=1_000_000, allow_inf_nan=False)
+    amount: float = Field(gt=0, le=100_000_000, allow_inf_nan=False)
+    currency: Literal["INR", "USD", "EUR", "GBP", "AED", "SGD"] = "INR"
     merchant: str = Field(min_length=1, max_length=100)
-    country: str = Field(min_length=2, max_length=2, pattern=r"^[A-Za-z]{2}$")
+    country: str = Field(default="IN", min_length=2, max_length=2, pattern=r"^[A-Za-z]{2}$")
+    location: str | None = Field(default=None, max_length=60)
     channel: Literal["POS", "ONLINE", "ATM", "WALLET"]
+    anon_features: list[float] | None = Field(default=None, min_length=28, max_length=28)
+
+    @field_validator("location")
+    @classmethod
+    def _location(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = _clean(v)
+        return _reject_pan(v) or None
+
+    @field_validator("anon_features")
+    @classmethod
+    def _features(cls, v: list[float] | None) -> list[float] | None:
+        if v is not None and any(abs(x) > 1e4 or x != x for x in v):
+            raise ValueError("features must be finite numbers")
+        return v
 
     @field_validator("card_token")
     @classmethod
@@ -96,7 +114,57 @@ class ConfigIn(BaseModel):
         return self
 
 
+EMAIL_RE = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+
+
 class LoginIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    username: str = Field(min_length=1, max_length=64)
+    email: str = Field(min_length=3, max_length=120)
     password: str = Field(min_length=1, max_length=256)
+
+
+class OtpIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    challenge_id: int = Field(ge=1)
+    code: str = Field(pattern=r"^\d{6}$")
+
+
+class UserCreateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str = Field(max_length=120, pattern=EMAIL_RE)
+    name: str = Field(min_length=1, max_length=80)
+    role: Literal["analyst", "admin"]
+    password: str = Field(min_length=10, max_length=128)
+
+    @field_validator("name")
+    @classmethod
+    def _name(cls, v: str) -> str:
+        return _clean(v)
+
+
+class UserUpdateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: Literal["analyst", "admin"] | None = None
+    disabled: bool | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+
+
+class PasswordChangeIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    current_password: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=10, max_length=128)
+
+
+class AdminPasswordIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    new_password: str = Field(min_length=10, max_length=128)
+
+
+class AssignIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    assignee: str | None = Field(default=None, max_length=120)
+
+
+class ReplyIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reply: Literal["LEGIT", "NOT_ME"]

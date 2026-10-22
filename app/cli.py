@@ -1,4 +1,4 @@
-"""Admin CLI.  python -m app.cli create-user --username alice --role analyst   (password is prompted)"""
+"""Admin CLI.  python -m app.cli create-user --email alice@example.com --name "Alice" --role analyst   (password is prompted)"""
 from __future__ import annotations
 
 import argparse
@@ -15,7 +15,8 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="app.cli")
     sub = p.add_subparsers(dest="cmd", required=True)
     cu = sub.add_parser("create-user")
-    cu.add_argument("--username", required=True)
+    cu.add_argument("--email", required=True)
+    cu.add_argument("--name", default=None)
     cu.add_argument("--role", choices=["analyst", "admin"], required=True)
     args = p.parse_args(argv)
     settings = Settings.from_env()
@@ -26,13 +27,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     conn = connect(settings.db_path)
     try:
-        auth_service.create_user(conn, args.username, pw, args.role)
+        auth_service.create_user(conn, args.email, pw, args.role, args.name)
     except Exception as exc:  # AppError carries a user-facing message
         print(f"Error: {getattr(exc, 'message', exc)}", file=sys.stderr)
         return 1
     finally:
         conn.close()
-    print(f"Created {args.role} '{args.username}'.")
+    print(f"Created {args.role} '{args.email}'.")
     return 0
 
 

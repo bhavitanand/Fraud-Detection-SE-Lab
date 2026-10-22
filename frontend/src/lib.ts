@@ -17,7 +17,8 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
   return { ...state, reload: run };
 }
 
-export const fmtMoney = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+export const fmtMoney = (n: number, currency = "INR") =>
+  new Intl.NumberFormat(currency === "INR" ? "en-IN" : "en-US", { style: "currency", currency, maximumFractionDigits: currency === "INR" && Number.isInteger(n) ? 0 : 2 }).format(n);
 export const fmtPct = (n: number | null | undefined) => (n === null || n === undefined ? "n/a" : `${(n * 100).toFixed(1)}%`);
 export function fmtTime(iso: string | null | undefined): string {
   if (!iso) return "—";

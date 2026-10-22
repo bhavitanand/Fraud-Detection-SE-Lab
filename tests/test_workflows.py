@@ -11,7 +11,7 @@ def post(c, **kw):
 
 # ---- validation ----
 @pytest.mark.parametrize("bad", [
-    {"amount": 0}, {"amount": -1}, {"amount": 1_000_001}, {"amount": "abc"}, {"card_token": "abc"}, {"card_token": "has space1"},
+    {"amount": 0}, {"amount": -1}, {"amount": 100_000_001}, {"amount": "abc"}, {"card_token": "abc"}, {"card_token": "has space1"},
     {"card_token": "4111111111111111"}, {"card_token": "<script>alert1</script>"}, {"merchant": "  "}, {"merchant": "Shop 4111 1111 1111 1111"},
     {"country": "USA"}, {"country": "1!"}, {"channel": "FAX"}, {"cvv": "123"},
 ])
@@ -37,7 +37,7 @@ def test_scoring_explanation_is_persisted(empty_client):
     d = empty_client.get(f"/api/transactions/{out['id']}").json()
     assert {f["code"] for f in d["factors"]} >= {"base", "blocked_country", "high_amount"}
     assert abs(sum(f["points"] for f in d["factors"]) - d["score"]) < 1e-9
-    assert d["scorer"] == "heuristic-v1" and d["source"] == "LIVE"
+    assert d["scorer"].startswith("heuristic-v2") and d["source"] == "LIVE"
 
 
 # ---- review state machine ----
@@ -198,6 +198,6 @@ def test_responses_have_security_headers_and_no_wildcard_cors(client):
 
 def test_rules_catalogue_reflects_scorer_and_config(client):
     r = client.get("/api/rules").json()
-    assert r["trained_model"] is False and r["scorer"] == "heuristic-v1"
-    assert {f["code"] for f in r["factors"]} == {"base", "high_amount", "blocked_country", "online_channel", "high_velocity"}
+    assert r["trained_model"] is True and r["scorer"] == "heuristic-v2"
+    assert {f["code"] for f in r["factors"]} == {"base", "high_amount", "blocked_country", "online_channel", "high_velocity", "unusual_amount", "new_country", "new_merchant", "impossible_travel"}
     assert all(isinstance(f["points"], float) for f in r["factors"])

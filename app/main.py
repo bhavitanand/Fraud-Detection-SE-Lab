@@ -13,7 +13,10 @@ from app.api.routes import router
 from app.core.config import Settings
 from app.core.errors import install_handlers
 from app.db.init import init_database
-from app.services.scoring import HeuristicScorer
+from app.db.session import connect
+from app.repositories import db_access as repo
+from app.services.ml_service import ModelService
+from app.services.scoring import HeuristicScorer, HybridScorer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -29,10 +32,16 @@ def create_app(settings: Settings | None = None, scorer=None) -> FastAPI:
     settings = settings or Settings.from_env()
     app = FastAPI(title="Fraud Desk API", version="2.0.0", description="Synthetic-data credit card fraud review demonstrator (not a payment system).")
     app.state.settings = settings
-    app.state.scorer = scorer or HeuristicScorer()
     app.state.secret = init_database(settings)
+    app.state.models = ModelService()
+    conn = connect(settings.db_path)
+    try:
+        app.state.models.load(repo.active_model(conn))
+    finally:
+        conn.close()
+    app.state.scorer = scorer or HybridScorer(HeuristicScorer(), app.state.models)
     install_handlers(app)
-    app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_methods=["GET", "POST", "PUT"],
+    app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_methods=["GET", "POST", "PUT", "PATCH"],
                        allow_headers=["Authorization", "Content-Type"], allow_credentials=False)
 
     @app.middleware("http")

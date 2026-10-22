@@ -87,3 +87,35 @@ Dependency installation was approved by the project owner and was confined to `.
 - PostgreSQL is not configured. Concurrency is covered by SQLite write locking plus a threaded double-review test; no load testing was done.
 - Legacy rows are marked SEED only for the three rows the old app seeded; any other pre-existing rows are treated as LIVE.
 - Accessibility work (labels, focus rings, reduced motion, dialog focus/Esc) was implemented but not audited with a screen reader.
+
+
+---
+
+# Second iteration: India-specific data model, ML, sign-in, lab file (2026-10-22)
+
+## What changed
+- **Schema v3** (in-place migration of v1/v2 databases): customers, merchants, cards (card_id PK), fraud_alerts (alerts are now rows; review state moved off transactions; view `v_transactions`), ml_models, notifications, otp_challenges, audit hash chain, `analysts` view. Matches the seven entities of the lab file's ER diagram.
+- **India**: INR default with en-IN formatting, ₹50,000 high-amount limit, Indian cities with coordinates, MCC merchants, 14 synthetic cardholders; seeded through the real scoring/alert/notification code.
+- **New scoring factors**: unusual amount, new country, new merchant, impossible travel (haversine speed), plus currency conversion with fixed demo rates.
+- **ML**: `ml/train.py` (ULB dataset, chronological split, calibrated), registry + deploy/retire + benchmark replay, verified artifact loading, hybrid noisy-OR scorer with safe fallback.
+- **Sign-in**: e-mail + password; optional e-mail one-time code (console or SMTP); users page; change password; last-admin protection.
+- **Workflow**: alert assignment, simulated cardholder messages with a public one-time reply link (“not me” blocks the card), analyst productivity, label export, audit integrity check.
+- **Docs/lab file**: `docs/lab-file/` builds the updated practical file (original Experiments 1–10 untouched plus as-built notes, new Experiments 11–13 and an appendix).
+- Google sign-in was dropped at the owner's request.
+
+## Measured results (scripts/collect_results.py, 2026-10-22T19:28:32+00:00)
+| Check | Result |
+|---|---|
+| Back-end `pytest` | **181 passed**, 0 failed, 96.6% statement coverage |
+| Front-end `vitest` | **26 passed** |
+| `tsc --noEmit` (strict) | passed |
+| Scoring latency (in-process, 300 requests) | p50 5.8 ms, p95 7.7 ms, p99 9.4 ms (no network) |
+| Live server run (OTP sign-in, SPA, model replay, audit verify) | passed; no secrets in logs |
+| ML held-out test (74 frauds in 56,746 rows) | PR-AUC 0.78; at the app threshold 57 caught, 17 missed, 10 false alarms (precision 85%, recall 77%) |
+
+## Not verified / limits
+- The UI was **never opened in a real browser** (none available here): no visual, contrast or keyboard check.
+- E-mail sending through a real SMTP server was tested only with a mock; SMS/phone OTP is not implemented.
+- ML metrics rest on 74 test frauds, a 2013 European dataset in EUR; Indian live transactions are rule-scored. The benchmark replay sample is enriched with fraud (20%) and over-states precision.
+- No load, penetration or accessibility testing; hash chain is tamper-evident only; no TLS.
+- The Gantt/PERT schedule and FP complexity ratings in the lab file are planning assumptions to be replaced with the team's real dates and judgement.

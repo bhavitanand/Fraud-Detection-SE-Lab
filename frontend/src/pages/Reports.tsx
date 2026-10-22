@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { Report } from "../api/types";
 import { ErrorState, Field, Loading, PageHead, useToast } from "../components/ui";
-import { errMsg, fmtPct, label, useAsync } from "../lib";
+import { errMsg, fmtMoney, fmtPct, label, useAsync } from "../lib";
 import { DecisionBar, Trend } from "./Overview";
 
 function Counts({ title, data }: { title: string; data: Record<string, number> }) {
@@ -29,16 +29,21 @@ export default function Reports() {
       <div className="filters">
         <Field label="From"><input type="date" value={from} onChange={(e) => set("date_from", e.target.value)} /></Field>
         <Field label="To"><input type="date" value={to} onChange={(e) => set("date_to", e.target.value)} /></Field>
-        <Field label="Source"><select value={source} onChange={(e) => set("source", e.target.value)}><option value="">All</option><option value="LIVE">Live</option><option value="SEED">Demo seed</option></select></Field>
+        <Field label="Source"><select value={source} onChange={(e) => set("source", e.target.value)}><option value="">All</option><option value="LIVE">Live</option><option value="SEED">Demo seed</option><option value="BENCH">Benchmark</option></select></Field>
       </div>
       {bad && <div className="banner err" role="alert">The start date must not be after the end date.</div>}
       {!bad && (loading && !data ? <Loading /> : error && !data ? <ErrorState message={error.message} onRetry={reload} /> : data && (
         <>
           <div className="banner warn"><strong>Read with care.</strong><ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{data.limitations.map((l) => <li key={l}>{l}</li>)}</ul></div>
           <div className="grid g3">
-            <div className="card"><h3>Totals</h3><dl className="dl"><dt>Transactions</dt><dd>{data.transactions}</dd><dt>Flagged</dt><dd>{data.alert_count} ({fmtPct(data.alert_rate)})</dd><dt>Open backlog</dt><dd>{data.alert_backlog}</dd><dt>Reviewed</dt><dd>{data.reviewed}</dd><dt>Confirmed fraud</dt><dd>{data.confirmed_fraud}</dd><dt>False positives</dt><dd>{data.false_positives}</dd><dt>Confirmed share</dt><dd>{fmtPct(data.confirmed_share)} <span className="muted">of reviewed</span></dd></dl></div>
+            <div className="card"><h3>Totals</h3><dl className="dl"><dt>Transactions</dt><dd>{data.transactions}</dd><dt>Flagged</dt><dd>{data.alert_count} ({fmtPct(data.alert_rate)})</dd><dt>Open backlog</dt><dd>{data.alert_backlog}</dd><dt>Reviewed</dt><dd>{data.reviewed}</dd><dt>Confirmed fraud</dt><dd>{data.confirmed_fraud}</dd><dt>False positives</dt><dd>{data.false_positives}</dd><dt>Confirmed share</dt><dd>{fmtPct(data.confirmed_share)} <span className="muted">of reviewed</span></dd><dt>Fraud rate</dt><dd>{fmtPct(data.fraud_rate)} <span className="muted">confirmed / all</span></dd><dt>False-positive share</dt><dd>{fmtPct(data.false_positive_share)} <span className="muted">of reviewed</span></dd><dt>Flagged value</dt><dd>{fmtMoney(data.flagged_value_inr)} <span className="muted">INR only</span></dd></dl></div>
             <div className="card"><h3>Decisions</h3><DecisionBar by={data.by_decision} /></div>
             <Counts title="By channel" data={data.by_channel} />
+          </div>
+          <div className="card mt"><h2>Analyst productivity</h2>
+            {data.productivity.length === 0 ? <p className="muted">No resolved alerts in this range.</p> : (
+              <div className="table-wrap"><table><thead><tr><th>Analyst</th><th className="num">Resolved</th><th className="num">Confirmed fraud</th><th className="num">False positives</th><th className="num">Avg. minutes to resolve</th></tr></thead>
+                <tbody>{data.productivity.map((p) => <tr key={p.analyst}><td>{p.analyst}</td><td className="num">{p.resolved}</td><td className="num">{p.confirmed}</td><td className="num">{p.false_positives}</td><td className="num">{p.avg_minutes_to_resolve ?? "—"}</td></tr>)}</tbody></table></div>)}
           </div>
           <div className="card mt"><h2>Daily trend</h2><Trend data={data.trend} />
             {data.trend.length > 0 && <div className="table-wrap mt"><table><thead><tr><th>Date</th><th className="num">Total</th><th className="num">Flagged</th><th className="num">Holds</th><th className="num">Declines</th></tr></thead><tbody>{data.trend.map((d) => <tr key={d.date}><td>{d.date}</td><td className="num">{d.total}</td><td className="num">{d.alerts}</td><td className="num">{d.holds}</td><td className="num">{d.declines}</td></tr>)}</tbody></table></div>}</div>

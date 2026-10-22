@@ -46,15 +46,15 @@ export default function Overview() {
   if (loading && !data) return <Loading />;
   if (error && !data) return <ErrorState message={error.message} onRetry={reload} />;
   if (!data) return null;
-  const seed = data.by_source.SEED ?? 0, live = data.by_source.LIVE ?? 0;
+  const seed = data.by_source.SEED ?? 0, live = data.by_source.LIVE ?? 0, bench = data.by_source.BENCH ?? 0;
   return (
     <>
       <PageHead title="Overview" sub="Operational summary of all recorded transactions."><button className="btn" onClick={reload}>Refresh</button></PageHead>
-      <div className="banner">Data mix: <strong>{seed}</strong> synthetic seeded transactions and <strong>{live}</strong> submitted live in this app. {data.note}</div>
+      <div className="banner">Data mix: <strong>{seed}</strong> synthetic seeded (INR), <strong>{live}</strong> submitted live in this app and <strong>{bench}</strong> benchmark replays (EUR, public dataset). {data.note}</div>
       <div className="kpis">
         <div className="kpi"><div className="l">Transactions</div><div className="v">{data.transactions}</div><div className="s">avg score {data.average_score.toFixed(2)}</div></div>
-        <div className="kpi"><div className="l">Open alert backlog</div><div className="v">{data.alert_backlog}</div><div className="s"><Link to="/alerts">Review queue</Link></div></div>
-        <div className="kpi"><div className="l">Alert rate</div><div className="v">{fmtPct(data.alert_rate)}</div><div className="s">{data.alert_count} flagged (hold or decline)</div></div>
+        <div className="kpi"><div className="l">Open alert backlog</div><div className="v">{data.alert_backlog}</div><div className="s"><Link to="/alerts">Review queue</Link> · {data.unassigned_open} unassigned</div></div>
+        <div className="kpi"><div className="l">Alert rate</div><div className="v">{fmtPct(data.alert_rate)}</div><div className="s">{data.alert_count} flagged · {fmtMoney(data.flagged_value_inr)} value</div></div>
         <div className="kpi"><div className="l">Confirmed fraud</div><div className="v">{data.confirmed_fraud}</div><div className="s">analyst verdicts</div></div>
         <div className="kpi"><div className="l">False positives</div><div className="v">{data.false_positives}</div><div className="s">confirmed share {fmtPct(data.confirmed_share)}</div></div>
       </div>
@@ -67,7 +67,7 @@ export default function Overview() {
         {data.recent_suspicious.length === 0 ? <Empty>No flagged transactions.</Empty> : (
           <div className="table-wrap"><table><thead><tr><th>ID</th><th>Time</th><th>Token</th><th>Merchant</th><th className="num">Amount</th><th>Score</th><th>Decision</th><th>Source</th></tr></thead>
             <tbody>{data.recent_suspicious.map((t) => (
-              <tr key={t.id}><td><Link to={`/transactions/${t.id}`}>#{t.id}</Link></td><td>{fmtTime(t.created)}</td><td className="mono">{t.token}</td><td>{t.merchant}</td><td className="num">{fmtMoney(t.amount)}</td><td><Score value={t.score} /></td><td><DecisionBadge d={t.decision} /></td><td><SourceBadge s={t.source} /></td></tr>
+              <tr key={t.id}><td><Link to={`/transactions/${t.id}`}>#{t.id}</Link></td><td>{fmtTime(t.created)}</td><td className="mono">{t.token}</td><td>{t.merchant}</td><td className="num">{fmtMoney(t.amount, t.currency)}</td><td><Score value={t.score} /></td><td><DecisionBadge d={t.decision} /></td><td><SourceBadge s={t.source} /></td></tr>
             ))}</tbody></table></div>)}
       </div>
     </>

@@ -1,0 +1,216 @@
+{
+  "collected_at": "2026-10-22T19:28:32+00:00",
+  "python": "3.12.3",
+  "backend": {
+    "tests": 181,
+    "failures": 0,
+    "skipped": 0,
+    "seconds": 60.174,
+    "coverage_percent": 96.6,
+    "statements": 1552,
+    "files": {
+      "app/__init__.py": {
+        "statements": 0,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/api/__init__.py": {
+        "statements": 0,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/api/deps.py": {
+        "statements": 45,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/api/routes.py": {
+        "statements": 144,
+        "missing": 2,
+        "percent": 98.6
+      },
+      "app/cli.py": {
+        "statements": 33,
+        "missing": 1,
+        "percent": 97.0
+      },
+      "app/core/__init__.py": {
+        "statements": 0,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/core/config.py": {
+        "statements": 28,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/core/errors.py": {
+        "statements": 53,
+        "missing": 2,
+        "percent": 96.2
+      },
+      "app/core/integrity.py": {
+        "statements": 6,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/core/security.py": {
+        "statements": 18,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/db/__init__.py": {
+        "statements": 0,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/db/init.py": {
+        "statements": 23,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/db/migrations.py": {
+        "statements": 27,
+        "missing": 3,
+        "percent": 88.9
+      },
+      "app/db/session.py": {
+        "statements": 20,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/main.py": {
+        "statements": 59,
+        "missing": 1,
+        "percent": 98.3
+      },
+      "app/repositories/__init__.py": {
+        "statements": 0,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/repositories/db_access.py": {
+        "statements": 218,
+        "missing": 11,
+        "percent": 95.0
+      },
+      "app/schemas/__init__.py": {
+        "statements": 0,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/schemas/models.py": {
+        "statements": 127,
+        "missing": 4,
+        "percent": 96.9
+      },
+      "app/services/__init__.py": {
+        "statements": 0,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/services/auth_service.py": {
+        "statements": 128,
+        "missing": 5,
+        "percent": 96.1
+      },
+      "app/services/cards_service.py": {
+        "statements": 13,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/services/common.py": {
+        "statements": 10,
+        "missing": 1,
+        "percent": 90.0
+      },
+      "app/services/geo.py": {
+        "statements": 14,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/services/mailer.py": {
+        "statements": 29,
+        "missing": 6,
+        "percent": 79.3
+      },
+      "app/services/ml_service.py": {
+        "statements": 53,
+        "missing": 2,
+        "percent": 96.2
+      },
+      "app/services/models_service.py": {
+        "statements": 90,
+        "missing": 9,
+        "percent": 90.0
+      },
+      "app/services/notifications_service.py": {
+        "statements": 46,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/services/reports_service.py": {
+        "statements": 53,
+        "missing": 1,
+        "percent": 98.1
+      },
+      "app/services/scoring.py": {
+        "statements": 95,
+        "missing": 1,
+        "percent": 98.9
+      },
+      "app/services/seed.py": {
+        "statements": 64,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/services/settings_service.py": {
+        "statements": 28,
+        "missing": 0,
+        "percent": 100.0
+      },
+      "app/services/transactions_service.py": {
+        "statements": 117,
+        "missing": 3,
+        "percent": 97.4
+      },
+      "ml/wrapper.py": {
+        "statements": 11,
+        "missing": 1,
+        "percent": 90.9
+      }
+    },
+    "modules": {
+      "test_auth": 18,
+      "test_db_and_failures": 7,
+      "test_exp11_black_box": 64,
+      "test_india_and_alerts": 19,
+      "test_ml": 10,
+      "test_scoring": 17,
+      "test_smoke": 5,
+      "test_workflows": 41
+    }
+  },
+  "frontend": {
+    "tests": 26,
+    "passed": 26,
+    "failed": 0,
+    "files": 4
+  },
+  "typecheck_ok": true,
+  "pytest_exit": 0,
+  "loc": {
+    "python_app": 1988,
+    "python_tests": 885,
+    "frontend_src": 1572
+  },
+  "latency_ms": {
+    "n": 300,
+    "p50": 5.8,
+    "p95": 7.7,
+    "p99": 9.4,
+    "max": 40.9,
+    "note": "in-process, excludes network"
+  },
+  "pytest_tail": "\nCoverage JSON written to file /home/claude/work/Fraud-Detection-SE-Lab-main/.results-tmp/cov.json\n181 passed, 1 warning in 60.43s (0:01:00)"
+}

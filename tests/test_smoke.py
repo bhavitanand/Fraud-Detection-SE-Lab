@@ -53,7 +53,7 @@ def test_admin_card_block_and_unblock(client):
 
 
 def test_false_positive_verdict_is_recorded_without_blocking(client):
-    payload = tx(card_token="SYNTH-FP-7788", amount=2200)
+    payload = tx(card_token="SYNTH-FP-7788", amount=55000)
     tx_id = client.post("/api/transactions", json=payload).json()["id"]
     reviewed = client.post(f"/api/alerts/{tx_id}/review", json={"verdict": "FALSE_POSITIVE"})
     assert reviewed.status_code == 200

@@ -35,15 +35,15 @@ export default function Cards() {
       <div className="banner">These are synthetic demo tokens. Blocking a token only changes this application's local behavior (new transactions on it are rejected). It does not contact any bank or payment network.</div>
       {!isAdmin && <div className="banner warn">Blocking and unblocking requires the administrator role. You can view status only.</div>}
       <div className="filters">
-        <Field label="Search token"><input value={q} onChange={(e) => set("q", e.target.value)} placeholder="SYNTH-…" /></Field>
+        <Field label="Search"><input value={q} onChange={(e) => set("q", e.target.value)} placeholder="Token or cardholder" /></Field>
         <Field label="Status"><select value={blocked} onChange={(e) => set("blocked", e.target.value)}><option value="">All</option><option value="true">Blocked</option><option value="false">Active</option></select></Field>
       </div>
       {loading && !data ? <Loading /> : error && !data ? <ErrorState message={error.message} onRetry={reload} /> : data && (
         <div className="table-wrap">
           {data.length === 0 ? <Empty>No card tokens match.</Empty> : (
-            <table><thead><tr><th>Token</th><th>Status</th><th>Block details</th><th className="num">Transactions</th><th className="num">Alerts</th><th>Last seen</th><th /></tr></thead>
+            <table><thead><tr><th>Token</th><th>Cardholder</th><th>Card</th><th>Status</th><th>Block details</th><th className="num">Transactions</th><th className="num">Alerts</th><th>Last seen</th><th /></tr></thead>
               <tbody>{data.map((c) => (
-                <tr key={c.token}><td className="mono">{c.token}</td><td>{c.blocked ? <Badge tone="red">Blocked</Badge> : <Badge tone="green">Active</Badge>}</td>
+                <tr key={c.token}><td className="mono">{c.token}</td><td>{c.customer_name ?? <span className="muted">unknown</span>}{c.customer_city ? <span className="muted"> · {c.customer_city}</span> : null}</td><td>{c.issuer ? `${c.issuer} ${c.card_network}` : "—"}</td><td>{c.blocked ? <Badge tone="red">Blocked</Badge> : <Badge tone="green">Active</Badge>}</td>
                   <td className="wrap">{c.blocked ? <>{c.block_reason ?? "—"}<br /><span className="muted">{c.blocked_by} · {fmtTime(c.blocked_at)}</span></> : "—"}</td>
                   <td className="num">{c.tx_count}</td><td className="num">{c.alert_count}</td><td>{fmtTime(c.last_seen)}</td>
                   <td><button className="btn small" disabled={!isAdmin} title={isAdmin ? "" : "Administrator role required"} onClick={() => { setErr(null); setTarget({ card: c, block: !c.blocked }); }}>{c.blocked ? "Unblock" : "Block"}</button></td></tr>))}</tbody></table>)}

@@ -18,7 +18,7 @@ export function mockApi(handler: Handler) {
   return calls;
 }
 
-export const me = (role: "analyst" | "admin") => ({ username: "tester", role, auth_required: true });
+export const me = (role: "analyst" | "admin") => ({ email: "tester@example.com", name: "Tester", role, auth_required: true });
 
 export function renderAt(ui: ReactElement, path: string, route = "*") {
   return render(

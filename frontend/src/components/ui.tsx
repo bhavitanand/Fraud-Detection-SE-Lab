@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { Component, createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { Decision, Review, Source } from "../api/types";
 import { label } from "../lib";
 
@@ -9,7 +9,7 @@ export const DecisionBadge = ({ d }: { d: Decision }) => <Badge tone={d === "DEC
 export const ReviewBadge = ({ r }: { r: Review }) => (
   <Badge tone={r === "OPEN" ? "amber" : r === "CONFIRMED_FRAUD" ? "red" : r === "FALSE_POSITIVE" ? "blue" : "gray"}>{r === "NOT_REQUIRED" ? "No alert" : label(r)}</Badge>
 );
-export const SourceBadge = ({ s }: { s: Source }) => <Badge tone={s === "SEED" ? "gray" : "blue"}>{s === "SEED" ? "Demo seed" : "Live"}</Badge>;
+export const SourceBadge = ({ s }: { s: Source }) => <Badge tone={s === "LIVE" ? "blue" : "gray"}>{s === "SEED" ? "Demo seed" : s === "BENCH" ? "Benchmark" : "Live"}</Badge>;
 
 export function Score({ value }: { value: number }) {
   const color = value > 0.65 ? "var(--red)" : value > 0.25 ? "var(--amber)" : "var(--green)";
@@ -92,4 +92,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 export function Field({ label: text, hint, error, children }: { label: string; hint?: string; error?: string; children: ReactNode }) {
   return <label className="f"><span>{text}</span>{children}{hint && !error && <span className="hint">{hint}</span>}{error && <span className="field-err" role="alert">{error}</span>}</label>;
+}
+
+/** Last line of defence: an unexpected response shape or render bug shows a recoverable message instead of a blank page. */
+export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error: unknown) { console.error("render error", error); }
+  render() {
+    return this.state.failed
+      ? <div className="state err" role="alert"><p>This page could not be displayed. The server may have sent data in an unexpected format.</p><button className="btn" onClick={() => window.location.reload()}>Reload</button></div>
+      : this.props.children;
+  }
 }

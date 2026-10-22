@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "../auth";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { ReviewResult, TransactionDetail as TD } from "../api/types";
@@ -10,6 +11,7 @@ export default function TransactionDetail() {
   const { id } = useParams();
   const nav = useNavigate();
   const toast = useToast();
+  const { me } = useAuth();
   const { data: t, error, loading, reload } = useAsync(() => api.get<TD>(`/api/transactions/${id}`), [id]);
   const [verdict, setVerdict] = useState<"CONFIRMED_FRAUD" | "FALSE_POSITIVE" | "">("");
   const [note, setNote] = useState("");
@@ -30,6 +32,9 @@ export default function TransactionDetail() {
     } catch (e) { setActionErr(errMsg(e)); } finally { setBusy(false); }
   };
   const open = t.has_alert && t.review === "OPEN";
+  const assign = async (assignee: string | null) => {
+    try { await api.post(`/api/alerts/${t.id}/assign`, { assignee }); toast(assignee ? `Assigned to ${assignee}` : "Alert unassigned"); reload(); } catch (e) { toast(errMsg(e), true); }
+  };
 
   return (
     <>
@@ -47,8 +52,15 @@ export default function TransactionDetail() {
           <dl className="dl">
             <dt>Decision</dt><dd><DecisionBadge d={t.decision} /> <ReviewBadge r={t.review} /> <SourceBadge s={t.source} /></dd>
             <dt>Risk score</dt><dd><Score value={t.score} /></dd>
-            <dt>Amount</dt><dd>{fmtMoney(t.amount)}</dd><dt>Merchant</dt><dd>{t.merchant}</dd>
-            <dt>Country / channel</dt><dd>{t.country} / {t.channel}</dd>
+            <dt>Amount</dt><dd>{fmtMoney(t.amount, t.currency)}</dd>
+            <dt>Merchant</dt><dd>{t.merchant}{t.merchant_info?.category_label ? <span className="muted"> · {t.merchant_info.category_label} (MCC {t.merchant_info.category_code}), {t.merchant_info.risk_level.toLowerCase()} risk</span> : null}</dd>
+            <dt>Place / channel</dt><dd>{t.location ? `${t.location}, ` : ""}{t.country} / {t.channel}</dd>
+            {t.customer && <><dt>Cardholder</dt><dd>{t.customer.name} <span className="muted">· home {t.customer.city ?? "—"}{t.customer.state ? `, ${t.customer.state}` : ""}</span></dd></>}
+            {t.card.issuer && <><dt>Card</dt><dd>{t.card.issuer} {t.card.card_network} {t.card.card_type?.toLowerCase()}{t.card.credit_limit ? ` · limit ${fmtMoney(t.card.credit_limit)}` : ""}</dd></>}
+            {t.has_alert && <><dt>Assigned to</dt><dd>{t.assigned_to ?? <span className="muted">Unassigned</span>}{open && me && (t.assigned_to === me.email
+              ? <> <button className="btn small" onClick={() => void assign(null)}>Unassign</button></>
+              : <> <button className="btn small" onClick={() => void assign(me.email)}>Assign to me</button></>)}</dd></>}
+            {t.cardholder_response && <><dt>Cardholder said</dt><dd>{t.cardholder_response === "NOT_ME" ? <Badge tone="red">Not me</Badge> : <Badge tone="green">This was me</Badge>}</dd></>}
             <dt>Card token</dt><dd><span className="mono">{t.token}</span> {t.card.blocked ? <Badge tone="red">Blocked</Badge> : <Badge tone="green">Active</Badge>} <Link to={`/cards?q=${t.token}`}>manage</Link></dd>
             {t.reviewed_at && <><dt>Reviewed</dt><dd>{fmtTime(t.reviewed_at)} by {t.reviewed_by}</dd></>}
             {t.review_note && <><dt>Analyst note</dt><dd>{t.review_note}</dd></>}
@@ -88,7 +100,7 @@ export default function TransactionDetail() {
         <div className="card"><h2>Other activity on this token</h2>
           {t.token_history.length === 0 ? <p className="muted">No other transactions for this token.</p> : (
             <div className="table-wrap"><table><thead><tr><th>ID</th><th>Time</th><th className="num">Amount</th><th>Score</th><th>Decision</th></tr></thead>
-              <tbody>{t.token_history.map((h) => <tr key={h.id}><td><Link to={`/transactions/${h.id}`}>#{h.id}</Link></td><td>{fmtTime(h.created)}</td><td className="num">{fmtMoney(h.amount)}</td><td><Score value={h.score} /></td><td><DecisionBadge d={h.decision} /></td></tr>)}</tbody></table></div>)}
+              <tbody>{t.token_history.map((h) => <tr key={h.id}><td><Link to={`/transactions/${h.id}`}>#{h.id}</Link></td><td>{fmtTime(h.created)}</td><td className="num">{fmtMoney(h.amount, h.currency)}</td><td><Score value={h.score} /></td><td><DecisionBadge d={h.decision} /></td></tr>)}</tbody></table></div>)}
         </div>
         <div className="card"><h2>Audit trail</h2><AuditList items={t.audit} compact /></div>
       </div>

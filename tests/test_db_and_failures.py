@@ -14,7 +14,7 @@ def test_init_is_idempotent_and_seed_runs_once(settings):
     init_database(settings)
     c = connect(settings.db_path)
     n = c.execute("select count(*) from transactions").fetchone()[0]
-    assert n == 70 and migrations.current_version(c) == migrations.LATEST
+    assert n > 100 and migrations.current_version(c) == migrations.LATEST == 3
     assert c.execute("select count(*) from audit where action='demo_data_seeded'").fetchone()[0] == 1
 
 

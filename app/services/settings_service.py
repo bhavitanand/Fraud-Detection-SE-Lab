@@ -9,7 +9,7 @@ from app.schemas.models import ConfigIn
 from .common import now_iso
 from .scoring import RiskConfig
 
-DEFAULTS = {"approve_max": "0.25", "hold_max": "0.65", "high_amount": "1500", "blocked_countries": "XX", "velocity_limit": "4"}
+DEFAULTS = {"approve_max": "0.25", "hold_max": "0.65", "high_amount": "50000", "blocked_countries": "XX,KP,IR", "velocity_limit": "4"}
 
 
 def ensure_defaults(conn: sqlite3.Connection) -> None:

@@ -11,13 +11,15 @@ from app.core.config import Settings
 from app.core.errors import Forbidden, Unauthorized
 from app.db.session import connect
 from app.repositories import db_access as repo
+from app.services.ml_service import ModelService
 from app.services.scoring import Scorer
 
 
 @dataclass(frozen=True)
 class User:
-    username: str
+    username: str  # the login e-mail address
     role: str
+    name: str | None = None
 
 
 def get_settings(request: Request) -> Settings:
@@ -26,6 +28,10 @@ def get_settings(request: Request) -> Settings:
 
 def get_scorer(request: Request) -> Scorer:
     return request.app.state.scorer
+
+
+def get_models(request: Request) -> ModelService:
+    return request.app.state.models
 
 
 def get_db(settings: Settings = Depends(get_settings)) -> Iterator[sqlite3.Connection]:
@@ -38,7 +44,7 @@ def get_db(settings: Settings = Depends(get_settings)) -> Iterator[sqlite3.Conne
 
 def current_user(request: Request, conn: sqlite3.Connection = Depends(get_db), settings: Settings = Depends(get_settings)) -> User:
     if not settings.auth_required:
-        return User("local-demo", "admin")  # explicit local-only mode; /api/health reports it
+        return User("local-demo", "admin", "Local demo")  # explicit local-only mode; /api/health reports it
     header = request.headers.get("authorization", "")
     if not header.lower().startswith("bearer "):
         raise Unauthorized("Authentication required.")
@@ -48,7 +54,7 @@ def current_user(request: Request, conn: sqlite3.Connection = Depends(get_db), s
     user = repo.get_user(conn, claims["sub"])  # re-check on every request so disabled users lose access immediately
     if not user or user["disabled"]:
         raise Unauthorized("Account is unavailable.")
-    return User(user["username"], user["role"])
+    return User(user["username"], user["role"], user["name"])
 
 
 def require_admin(user: User = Depends(current_user)) -> User:

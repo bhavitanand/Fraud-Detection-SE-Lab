@@ -8,8 +8,8 @@ import { me, mockApi, renderAt } from "./test-utils";
 afterEach(() => vi.unstubAllGlobals());
 
 const tx = (over = {}) => ({
-  id: 7, token: "SYNTH-0007", amount: 2400, merchant: "<b>Evil</b> Shop", country: "US", channel: "ONLINE", created: "2026-10-01T10:00:00+00:00", score: 0.49,
-  decision: "HOLD", reasons: [], factors: [{ code: "base", label: "Baseline risk", points: 0.04 }, { code: "high_amount", label: "Amount above 1500", points: 0.35 }, { code: "online_channel", label: "Online (card-not-present) channel", points: 0.1 }],
+  id: 7, token: "SYNTH-0007", amount: 60000, currency: "INR", merchant: "<b>Evil</b> Shop", country: "IN", location: "Delhi", channel: "ONLINE", alert_id: 3, assigned_to: null, cardholder_response: null, customer: { name: "Aarav Sharma", city: "Delhi", state: "Delhi", home_country: "IN" }, merchant_info: null, created: "2026-10-01T10:00:00+00:00", score: 0.49,
+  decision: "HOLD", reasons: [], factors: [{ code: "base", label: "Baseline risk", points: 0.04 }, { code: "high_amount", label: "Amount above ₹50,000", points: 0.35 }, { code: "online_channel", label: "Online (card-not-present) channel", points: 0.1 }],
   review: "OPEN", scorer: "heuristic-v1", source: "LIVE", reviewed_at: null, reviewed_by: null, review_note: null, has_alert: true,
   card: { token: "SYNTH-0007", blocked: false }, token_history: [], audit: [], ...over,
 });
@@ -24,7 +24,7 @@ describe("investigation flow", () => {
       return { status: 404, body: { error: { code: "not_found", message: "?" } } };
     });
     renderAt(<TransactionDetail />, "/transactions/7", "/transactions/:id");
-    expect(await screen.findByText("Amount above 1500")).toBeInTheDocument();
+    expect(await screen.findByText("Amount above ₹50,000")).toBeInTheDocument();
     const record = screen.getByRole("button", { name: /record verdict/i });
     expect(record).toBeDisabled();  // no verdict chosen yet
     await userEvent.click(screen.getByLabelText(/confirmed fraud/i));

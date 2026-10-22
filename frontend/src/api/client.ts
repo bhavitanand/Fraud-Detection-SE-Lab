@@ -52,6 +52,7 @@ export const api = {
   get: <T>(path: string, params?: Params) => json<T>(path + qs(params)),
   post: <T>(path: string, body?: unknown) => json<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) }),
   put: <T>(path: string, body: unknown) => json<T>(path, { method: "PUT", body: JSON.stringify(body) }),
+  patch: <T>(path: string, body: unknown) => json<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
   async download(path: string, params: Params, filename: string) {
     const res = await raw(path + qs(params));
     const url = URL.createObjectURL(await res.blob());

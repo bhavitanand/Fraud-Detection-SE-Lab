@@ -39,5 +39,6 @@ def empty_client(tmp_path):
 
 
 def tx(**over):
-    base = {"card_token": "SYNTH-TEST-7788", "amount": 2400, "merchant": "Synthetic Shop", "country": "US", "channel": "ONLINE"}
+    # 60,000 INR online = baseline 0.04 + high amount 0.35 + online 0.10 = 0.49 -> HOLD with the default thresholds
+    base = {"card_token": "SYNTH-TEST-7788", "amount": 60000, "merchant": "Synthetic Shop", "country": "IN", "channel": "ONLINE"}
     return {**base, **over}

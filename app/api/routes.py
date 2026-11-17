@@ -12,10 +12,12 @@ from app.core.errors import NotFound, TooManyAttempts
 from app.db import migrations
 from app.repositories import db_access as repo
 from app.schemas.models import (AdminPasswordIn, AssignIn, BlockIn, ConfigIn, LoginIn, OtpIn, PasswordChangeIn, ReplyIn, ReviewIn, TransactionIn, UserCreateIn, UserUpdateIn)
-from app.services import (auth_service, cards_service, models_service, notifications_service, reports_service, settings_service, transactions_service)
+from app.services import (autopilot_service, copilot_service, live_service, auth_service, cards_service, models_service, notifications_service, reports_service, settings_service, transactions_service)
 from app.services.geo import CITIES, FX_TO_INR
 from app.services.ml_service import ModelService
 from app.services.scoring import Scorer
+
+from pydantic import BaseModel, Field
 
 from .deps import User, current_user, get_db, get_models, get_scorer, get_settings, require_admin
 
@@ -106,7 +108,7 @@ def list_transactions(
     q: str | None = Query(None, max_length=60), decision: Literal["APPROVE", "HOLD", "DECLINE"] | None = None,
     review: Literal["OPEN", "CONFIRMED_FRAUD", "FALSE_POSITIVE", "NOT_REQUIRED"] | None = None,
     channel: Literal["POS", "ONLINE", "ATM", "WALLET"] | None = None, country: str | None = Query(None, pattern=r"^[A-Za-z]{2}$"),
-    source: Literal["SEED", "LIVE", "BENCH"] | None = None, min_score: float | None = Query(None, ge=0, le=1), max_score: float | None = Query(None, ge=0, le=1),
+    source: Literal["SEED", "LIVE", "BENCH", "SIM"] | None = None, min_score: float | None = Query(None, ge=0, le=1), max_score: float | None = Query(None, ge=0, le=1),
     date_from: str | None = Query(None, pattern=DATE), date_to: str | None = Query(None, pattern=DATE),
     sort: Literal["id", "created", "amount", "score", "decision", "token", "merchant"] = "id", order: Literal["asc", "desc"] = "desc",
     page: int = Query(1, ge=1, le=100000), page_size: int = Query(25, ge=1, le=100),
@@ -231,7 +233,7 @@ def replay(count: int = Query(10, ge=1, le=25), user: User = Depends(require_adm
 
 # ---- reports / labels / audit ----
 @router.get("/reports")
-def reports(date_from: str | None = Query(None, pattern=DATE), date_to: str | None = Query(None, pattern=DATE), source: Literal["SEED", "LIVE", "BENCH"] | None = None,
+def reports(date_from: str | None = Query(None, pattern=DATE), date_to: str | None = Query(None, pattern=DATE), source: Literal["SEED", "LIVE", "BENCH", "SIM"] | None = None,
             _: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
     return reports_service.build_report(conn, date_from, date_to, source)
 
@@ -258,3 +260,73 @@ def audit(action: str | None = Query(None, max_length=60), actor: str | None = Q
 @router.get("/audit/verify")
 def audit_verify(_: User = Depends(require_admin), conn: sqlite3.Connection = Depends(get_db)):
     return repo.verify_audit_chain(conn)
+
+
+# ---- live autonomous mode ----
+class LiveStartIn(BaseModel):
+    cards: int = Field(150, ge=20, le=600)
+    rate: float = Field(3.0, ge=0.5, le=25)
+    days: int = Field(30, ge=8, le=120)
+    fraud_boost: float = Field(3.0, ge=0.5, le=10)
+    autopilot: bool = True
+
+
+class AutopilotIn(BaseModel):
+    enabled: bool
+
+
+def _engine(request: Request) -> live_service.LiveEngine:
+    if not hasattr(request.app.state, "live"):
+        request.app.state.live = live_service.LiveEngine(request.app.state.settings.db_path, request.app.state.scorer)
+    return request.app.state.live
+
+
+@router.get("/live/status")
+def live_status(request: Request, _: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db)):
+    eng = _engine(request)
+    st = eng.status()
+    run = st["run"] or repo.get_config_rows(conn).get("live_run", "")
+    return {**st, "autopilot": autopilot_service.enabled(conn), "auto_block_score": float(repo.get_config_rows(conn).get("auto_block_score", "0.90")),
+            "model": _live_model_info(conn),
+            "kpis": live_service.kpis(conn, run, st["gate_rejected_fraud"], st["gate_fraud_inr"], st["gate_rejected_genuine"]) if run else None}
+
+
+def _live_model_info(conn: sqlite3.Connection) -> dict | None:
+    m = repo.active_model(conn, "live")
+    return None if m is None else {"model_id": m["model_id"], "name": m["name"], "algorithm": m["algorithm"], "pr_auc": m["pr_auc"]}
+
+
+@router.post("/live/start")
+def live_start(body: LiveStartIn, request: Request, user: User = Depends(require_admin)):
+    return _engine(request).start(body.cards, body.rate, body.days, body.fraud_boost, None, body.autopilot, user.username)
+
+
+@router.post("/live/stop")
+def live_stop(request: Request, _: User = Depends(require_admin)):
+    return _engine(request).stop()
+
+
+@router.put("/autopilot")
+def autopilot_set(body: AutopilotIn, user: User = Depends(require_admin), conn: sqlite3.Connection = Depends(get_db)):
+    autopilot_service.set_enabled(conn, body.enabled, user.username)
+    return {"autopilot": body.enabled}
+
+
+# ---- AI analyst copilot ----
+class ChatIn(BaseModel):
+    question: str = Field(min_length=2, max_length=300)
+
+
+@router.get("/copilot/status")
+def copilot_status(_: User = Depends(current_user), settings: Settings = Depends(get_settings)):
+    return copilot_service.status(settings)
+
+
+@router.get("/transactions/{tx_id}/copilot")
+def copilot_case(tx_id: int, _: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db), settings: Settings = Depends(get_settings)):
+    return copilot_service.case_summary(conn, tx_id, settings)
+
+
+@router.post("/copilot/chat")
+def copilot_chat(body: ChatIn, _: User = Depends(current_user), conn: sqlite3.Connection = Depends(get_db), settings: Settings = Depends(get_settings)):
+    return copilot_service.chat(conn, body.question, settings, sorted(CITIES))

@@ -36,7 +36,8 @@ def create_app(settings: Settings | None = None, scorer=None) -> FastAPI:
     app.state.models = ModelService()
     conn = connect(settings.db_path)
     try:
-        app.state.models.load(repo.active_model(conn))
+        app.state.models.load(repo.active_model(conn, "benchmark"), "benchmark")
+        app.state.models.load(repo.active_model(conn, "live"), "live")
     finally:
         conn.close()
     app.state.scorer = scorer or HybridScorer(HeuristicScorer(), app.state.models)

@@ -18,7 +18,8 @@ class ModelService:
     def __init__(self, artifacts_dir: Path = ARTIFACTS_DIR) -> None:
         self.dir = artifacts_dir
         self._lock = threading.Lock()
-        self._active: tuple[int, str, object] | None = None
+        self._active: tuple[int, str, object] | None = None  # benchmark (ULB) model
+        self._live: tuple[int, str, object] | None = None  # live (India features) model
         try:
             import joblib  # noqa: F401
             import numpy  # noqa: F401
@@ -31,10 +32,26 @@ class ModelService:
     def active_id(self) -> int | None:
         return self._active[0] if self._active else None
 
-    def load(self, model: dict | None) -> bool:
-        """Make `model` (a registry row) the live model, or clear it when None. Returns True when a model is live."""
+    @property
+    def live_id(self) -> int | None:
+        live = getattr(self, "_live", None)
+        return live[0] if live else None
+
+    def unload(self, kind: str = "benchmark") -> None:
         with self._lock:
-            self._active = None
+            if kind == "live":
+                self._live = None
+            else:
+                self._active = None
+
+    def load(self, model: dict | None, kind: str | None = None) -> bool:
+        """Make `model` (a registry row) the active model of its kind, or clear the benchmark slot when None. Returns True when a model is live."""
+        kind = kind or (model or {}).get("kind") or "benchmark"
+        with self._lock:
+            if kind == "live":
+                self._live = None
+            else:
+                self._active = None
             if model is None:
                 return False
             if not self.available:
@@ -49,8 +66,16 @@ class ModelService:
                 log.error("model artifact hash mismatch for %s; refusing to load", model["artifact_file"])
                 return False
             import joblib
-            self._active = (model["model_id"], f"{model['name']}", joblib.load(path))
-            log.info("ML model %s is live", model["name"])
+            try:
+                obj = joblib.load(path)
+            except Exception:  # e.g. a library the artifact needs is not installed: fall back to rules instead of failing at start-up
+                log.exception("could not load model %s; using rules only", model["name"])
+                return False
+            if kind == "live":
+                self._live = (model["model_id"], f"{model['name']}", obj)
+            else:
+                self._active = (model["model_id"], f"{model['name']}", obj)
+            log.info("ML model %s (%s) is live", model["name"], kind)
             return True
 
     def predict(self, features: tuple[float, ...], amount: float):
@@ -64,3 +89,15 @@ class ModelService:
             log.exception("model prediction failed; falling back to rules")
             return None
         return p, active[0], active[1]
+
+    def predict_live(self, vector: list[float]):
+        """Probability and top feature attributions for one live transaction, or None when no live model is active."""
+        live = getattr(self, "_live", None)
+        if live is None:
+            return None
+        try:
+            p, attribution = live[2].predict_with_attribution(vector)
+        except Exception:
+            log.exception("live model prediction failed; falling back to rules")
+            return None
+        return min(max(p, 0.0), 1.0), live[0], live[1], attribution

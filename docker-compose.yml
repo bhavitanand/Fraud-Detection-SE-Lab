@@ -1,0 +1,13 @@
+services:
+  fraud-desk:
+    build: .
+    ports: ["8000:8000"]
+    environment:
+      FRAUD_SECRET_KEY: ${FRAUD_SECRET_KEY:?set FRAUD_SECRET_KEY (any 32+ character string)}
+      FRAUD_ADMIN_EMAIL: ${FRAUD_ADMIN_EMAIL:-admin@frauddesk.demo}
+      FRAUD_ADMIN_PASSWORD: ${FRAUD_ADMIN_PASSWORD:?set FRAUD_ADMIN_PASSWORD (10+ characters)}
+      FRAUD_GEMINI_API_KEY: ${FRAUD_GEMINI_API_KEY:-}
+    volumes: ["fraud-data:/data"]
+    restart: unless-stopped
+volumes:
+  fraud-data:

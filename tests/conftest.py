@@ -15,7 +15,7 @@ from app.main import create_app
 
 
 def make_settings(tmp_path, **kw) -> Settings:
-    base = dict(db_path=tmp_path / "test.sqlite", auth_required=False, secret_key="test-secret-" + "x" * 32, seed_demo=True,
+    base = dict(db_path=tmp_path / "test.sqlite", auth_required=False, secret_key="test-secret-" + "x" * 32, seed_demo=True, live_model=False,
                 frontend_dist=tmp_path / "no-dist")
     base.update(kw)
     return Settings(**base)

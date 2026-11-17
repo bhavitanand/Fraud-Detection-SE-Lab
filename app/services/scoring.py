@@ -26,9 +26,13 @@ class Factor:
     code: str
     label: str
     points: float
+    detail: dict | None = None  # optional structured explanation (e.g. top ML feature contributions)
 
     def as_dict(self) -> dict:
-        return {"code": self.code, "label": self.label, "points": self.points}
+        d = {"code": self.code, "label": self.label, "points": self.points}
+        if self.detail:
+            d["detail"] = self.detail
+        return d
 
 
 @dataclass(frozen=True)
@@ -48,6 +52,9 @@ class ScoringInput:
     rules_applicable: bool = True  # False for benchmark rows that lack real merchant/location fields
     anon_features: tuple[float, ...] | None = None
     amount_raw: float = 0.0
+    hour: int = 12  # hour of day of the transaction (0-23)
+    merchant_risk: int = 1  # 0 low, 1 medium, 2 high (from the merchant registry)
+    credit_limit: float = 0.0  # INR; 0 when unknown
 
 
 @dataclass(frozen=True)
@@ -112,7 +119,7 @@ class HybridScorer:
     def score(self, tx: ScoringInput, cfg: RiskConfig) -> ScoreResult:
         base = self.rules.score(tx, cfg)
         if tx.anon_features is None:
-            return base
+            return self._live_score(tx, base)
         pred = self.models.predict(tx.anon_features, tx.amount_raw)
         if pred is None:  # no active model or ML unavailable: safe fallback to rules only
             return base
@@ -120,6 +127,28 @@ class HybridScorer:
         combined = round(min(1.0, 1 - (1 - base.score) * (1 - p)), 3)
         factors = [*base.factors, Factor("ml_model", f"ML model fraud probability {p:.3f} ({label})", round(combined - base.score, 3))]
         return ScoreResult(combined, factors, f"{base.version}+{label}", model_id)
+
+
+    def _live_score(self, tx: ScoringInput, base: ScoreResult) -> ScoreResult:
+        """ML-primary scoring for live transactions: the calibrated model probability is the score. Policy rules (blocked countries) are layered on top
+        with noisy-OR. The other rules still run but only appear as context, because adding every rule on top of the model multiplied false positives
+        in evaluation (see the Models page). Falls back to the rule score when no live model is active."""
+        predict = getattr(self.models, "predict_live", None)
+        if predict is None or not tx.rules_applicable:
+            return base
+        from ml.features import vectorize
+        pred = predict(vectorize(tx))
+        if pred is None:
+            return base
+        p, model_id, label, attribution = pred
+        policy = sum(f.points for f in base.factors if f.code == "blocked_country")
+        combined = round(min(1.0, 1 - (1 - p) * (1 - policy)), 3)
+        signals = [f.label for f in base.factors if f.code not in ("base", "blocked_country", "score_cap")]
+        ml_pts = round(min(p, combined), 3)
+        factors = [Factor("ml_model", f"ML model fraud probability {p:.3f} ({label})", ml_pts, {"top": attribution, "rule_signals": signals})]
+        if policy:
+            factors.append(Factor("blocked_country", next(f.label for f in base.factors if f.code == "blocked_country"), round(combined - ml_pts, 3)))
+        return ScoreResult(combined, factors, f"ml-primary+{label}", model_id)
 
 
 def decide(score: float, cfg: RiskConfig) -> str:

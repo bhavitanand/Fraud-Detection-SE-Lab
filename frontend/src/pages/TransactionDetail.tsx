@@ -5,6 +5,7 @@ import { api } from "../api/client";
 import type { ReviewResult, TransactionDetail as TD } from "../api/types";
 import { Badge, ConfirmDialog, DecisionBadge, ErrorState, Field, Loading, PageHead, ReviewBadge, Score, SourceBadge, useToast } from "../components/ui";
 import { errMsg, fmtMoney, fmtTime, label, useAsync } from "../lib";
+import CaseCopilot from "../components/CaseCopilot";
 import { AuditList } from "./Audit";
 
 export default function TransactionDetail() {
@@ -68,13 +69,34 @@ export default function TransactionDetail() {
         </div>
         <div className="card">
           <h2>Why this score</h2>
-          {t.factors.map((f) => (
-            <div className="factor" key={f.code}><span>{f.label}</span><span className="num mono" style={{ textAlign: "right" }}>{f.points > 0 ? "+" : ""}{f.points.toFixed(2)}</span>
-              <div className="track"><i style={{ width: `${Math.min(100, Math.abs(f.points) * 100)}%` }} /></div></div>
-          ))}
-          <p className="muted" style={{ marginBottom: 0 }}>Transparent rule-based baseline. Contributions add up to the score; this is not a trained model.</p>
+          {(() => {
+            const ml = t.factors.find((f) => f.code === "ml_model");
+            const d = ml?.detail as { top?: { feature: string; impact: number }[]; rule_signals?: string[] } | undefined;
+            if (ml && d?.top) {
+              const max = Math.max(...d.top.map((x) => Math.abs(x.impact)), 0.01);
+              return (
+                <>
+                  <p style={{ margin: "0 0 8px" }}>Fraud probability from the trained model: <strong>{(t.score * 100).toFixed(1)}%</strong> <span className="muted">· top reasons</span></p>
+                  {d.top.map((x) => (
+                    <div className="factor" key={x.feature}><span>{x.feature}</span><span className="num mono" style={{ textAlign: "right" }}>{x.impact >= 0 ? "+" : ""}{(x.impact * 100).toFixed(1)}</span>
+                      <div className="track"><i style={{ width: `${(Math.abs(x.impact) / max) * 100}%`, background: x.impact >= 0 ? "var(--red)" : "var(--green)" }} /></div></div>))}
+                  {t.factors.filter((f) => f.code === "blocked_country").map((f) => <div className="factor" key={f.code}><span>{f.label}</span><span className="num mono">+{f.points.toFixed(2)}</span></div>)}
+                  {d.rule_signals && d.rule_signals.length > 0 && <p className="muted" style={{ fontSize: 12 }}>Rule signals seen (context only): {d.rule_signals.join(", ")}.</p>}
+                  <p className="muted" style={{ marginBottom: 0, fontSize: 12 }}>Bars show how much the model’s probability drops when that group of inputs is neutralised (an approximation, not exact Shapley values).</p>
+                </>);
+            }
+            return (
+              <>
+                {t.factors.map((f) => (
+                  <div className="factor" key={f.code}><span>{f.label}</span><span className="num mono" style={{ textAlign: "right" }}>{f.points > 0 ? "+" : ""}{f.points.toFixed(2)}</span>
+                    <div className="track"><i style={{ width: `${Math.min(100, Math.abs(f.points) * 100)}%` }} /></div></div>))}
+                <p className="muted" style={{ marginBottom: 0 }}>Transparent rule-based baseline. Contributions add up to the score; this is not a trained model.</p>
+              </>);
+          })()}
         </div>
       </div>
+
+      <CaseCopilot txId={t.id} />
 
       <div className="card mt">
         <h2>Analyst review</h2>

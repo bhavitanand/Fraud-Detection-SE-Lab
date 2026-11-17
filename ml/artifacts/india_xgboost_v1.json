@@ -1,0 +1,1030 @@
+{
+  "name": "india_xgboost_v1",
+  "kind": "live",
+  "version": "v1",
+  "algorithm": "xgboost",
+  "artifact_file": "india_xgboost_v1.joblib",
+  "artifact_sha256": "1db621ba2af53e2daafdcc37af81a29bcbe937a380d5a9676538162d6478cd69",
+  "trained_at": "2026-11-17T16:09:09+00:00",
+  "sklearn": "1.9.1",
+  "features": [
+    "log_amount",
+    "amount_vs_avg",
+    "amount_vs_limit",
+    "is_online",
+    "is_pos",
+    "is_atm",
+    "hour_sin",
+    "hour_cos",
+    "is_night",
+    "prior_tx_24h",
+    "history_len",
+    "is_foreign",
+    "new_country",
+    "new_merchant",
+    "km_from_last",
+    "hours_since_last",
+    "speed_kmh",
+    "merchant_risk",
+    "location_known"
+  ],
+  "dataset": {
+    "name": "Simulated Indian card transactions",
+    "generator": "ml/simulator.py",
+    "seed": 20261118,
+    "cards": 3000,
+    "days": 150,
+    "rows": 692633,
+    "frauds": 8741,
+    "fraud_rate": 0.01262,
+    "currency": "INR",
+    "fraud_patterns": [
+      "card_testing",
+      "account_takeover",
+      "cross_border",
+      "stolen_physical",
+      "night_spree",
+      "low_and_slow"
+    ],
+    "fraud_episodes_per_card_day": 0.0085
+  },
+  "split": {
+    "method": "chronological 60/20/20 by transaction time",
+    "train": {
+      "rows": 415579,
+      "frauds": 5289,
+      "fraud_rate": 0.01273
+    },
+    "val": {
+      "rows": 138527,
+      "frauds": 1689,
+      "fraud_rate": 0.01219
+    },
+    "test": {
+      "rows": 138527,
+      "frauds": 1763,
+      "fraud_rate": 0.01273
+    }
+  },
+  "metrics": {
+    "selected": "xgboost",
+    "validation_pr_auc_by_candidate": {
+      "logistic_regression": 0.7623,
+      "random_forest": 0.9286,
+      "hist_gradient_boosting": 0.94,
+      "xgboost": 0.9442,
+      "lightgbm": 0.9392
+    },
+    "fit_seconds": {
+      "logistic_regression": 1.1,
+      "random_forest": 21.0,
+      "hist_gradient_boosting": 4.2,
+      "xgboost": 8.2,
+      "lightgbm": 9.7
+    },
+    "test": {
+      "pr_auc": 0.9345,
+      "roc_auc": 0.9958,
+      "prevalence": 0.01273,
+      "at_app_threshold": {
+        "threshold": 0.25,
+        "precision": 0.9442,
+        "recall": 0.8446,
+        "f1": 0.8916,
+        "false_positive_rate": 0.00064,
+        "tp": 1489,
+        "fp": 88,
+        "fn": 274,
+        "tn": 136676
+      },
+      "comparison": {
+        "rules_only": {
+          "pr_auc": 0.2291,
+          "roc_auc": 0.8569,
+          "recall_at_1pct_fpr": 0.2405,
+          "at_app_threshold": {
+            "threshold": 0.25,
+            "precision": 0.0476,
+            "recall": 0.7255,
+            "f1": 0.0894,
+            "false_positive_rate": 0.18699,
+            "tp": 1279,
+            "fp": 25574,
+            "fn": 484,
+            "tn": 111190
+          }
+        },
+        "model_only": {
+          "pr_auc": 0.9345,
+          "roc_auc": 0.9958,
+          "recall_at_1pct_fpr": 0.9416,
+          "at_app_threshold": {
+            "threshold": 0.25,
+            "precision": 0.9442,
+            "recall": 0.8446,
+            "f1": 0.8916,
+            "false_positive_rate": 0.00064,
+            "tp": 1489,
+            "fp": 88,
+            "fn": 274,
+            "tn": 136676
+          }
+        },
+        "rules_plus_model": {
+          "pr_auc": 0.8548,
+          "roc_auc": 0.9767,
+          "recall_at_1pct_fpr": 0.8593,
+          "at_app_threshold": {
+            "threshold": 0.25,
+            "precision": 0.0609,
+            "recall": 0.9461,
+            "f1": 0.1144,
+            "false_positive_rate": 0.1881,
+            "tp": 1668,
+            "fp": 25725,
+            "fn": 95,
+            "tn": 111039
+          }
+        }
+      },
+      "per_pattern_recall": {
+        "card_testing": {
+          "count": 598,
+          "flagged_by_rules": 0.634,
+          "flagged_by_model": 0.983,
+          "declined_by_model": 0.973,
+          "flagged_by_rules_plus_model": 1.0
+        },
+        "account_takeover": {
+          "count": 506,
+          "flagged_by_rules": 0.955,
+          "flagged_by_model": 0.854,
+          "declined_by_model": 0.796,
+          "flagged_by_rules_plus_model": 0.992
+        },
+        "cross_border": {
+          "count": 165,
+          "flagged_by_rules": 0.976,
+          "flagged_by_model": 0.982,
+          "declined_by_model": 0.945,
+          "flagged_by_rules_plus_model": 0.988
+        },
+        "stolen_physical": {
+          "count": 229,
+          "flagged_by_rules": 0.603,
+          "flagged_by_model": 0.681,
+          "declined_by_model": 0.533,
+          "flagged_by_rules_plus_model": 0.934
+        },
+        "night_spree": {
+          "count": 177,
+          "flagged_by_rules": 0.565,
+          "flagged_by_model": 0.836,
+          "declined_by_model": 0.768,
+          "flagged_by_rules_plus_model": 0.932
+        },
+        "low_and_slow": {
+          "count": 88,
+          "flagged_by_rules": 0.205,
+          "flagged_by_model": 0.034,
+          "declined_by_model": 0.034,
+          "flagged_by_rules_plus_model": 0.295
+        }
+      },
+      "hybrid_decisions": {
+        "approve": 136950,
+        "hold": 147,
+        "decline": 1430
+      },
+      "feature_importance": [
+        {
+          "feature": "Merchant risk level",
+          "pr_auc_drop": 0.3707
+        },
+        {
+          "feature": "Distance, speed and time since the last transaction",
+          "pr_auc_drop": 0.2364
+        },
+        {
+          "feature": "Transaction amount",
+          "pr_auc_drop": 0.2107
+        },
+        {
+          "feature": "Channel (online / in-store / ATM)",
+          "pr_auc_drop": 0.1092
+        },
+        {
+          "feature": "Time of day",
+          "pr_auc_drop": 0.0787
+        },
+        {
+          "feature": "Amount compared with the card's usual spend",
+          "pr_auc_drop": 0.0131
+        },
+        {
+          "feature": "Merchant never used before on this card",
+          "pr_auc_drop": 0.0131
+        },
+        {
+          "feature": "Transactions on this card in the last 24 hours",
+          "pr_auc_drop": 0.0115
+        },
+        {
+          "feature": "Foreign or new country",
+          "pr_auc_drop": 0.0114
+        },
+        {
+          "feature": "Length of card history",
+          "pr_auc_drop": 0.0107
+        },
+        {
+          "feature": "Amount compared with the credit limit",
+          "pr_auc_drop": 0.0088
+        },
+        {
+          "feature": "Location available",
+          "pr_auc_drop": 0.0014
+        }
+      ],
+      "calibration": [
+        {
+          "bin": "0.00-0.01",
+          "n": 134809,
+          "mean_predicted": 0.0003,
+          "observed_rate": 0.0006
+        },
+        {
+          "bin": "0.01-0.03",
+          "n": 1097,
+          "mean_predicted": 0.021,
+          "observed_rate": 0.0228
+        },
+        {
+          "bin": "0.03-0.10",
+          "n": 554,
+          "mean_predicted": 0.0451,
+          "observed_rate": 0.0758
+        },
+        {
+          "bin": "0.10-0.25",
+          "n": 490,
+          "mean_predicted": 0.169,
+          "observed_rate": 0.2531
+        },
+        {
+          "bin": "0.25-0.50",
+          "n": 41,
+          "mean_predicted": 0.4231,
+          "observed_rate": 0.6098
+        },
+        {
+          "bin": "0.50-0.75",
+          "n": 135,
+          "mean_predicted": 0.5614,
+          "observed_rate": 0.6296
+        },
+        {
+          "bin": "0.75-1.00",
+          "n": 1401,
+          "mean_predicted": 0.9683,
+          "observed_rate": 0.9843
+        }
+      ],
+      "pr_curves": {
+        "rules_only": [
+          [
+            1.0,
+            0.0127
+          ],
+          [
+            1.0,
+            0.0127
+          ],
+          [
+            1.0,
+            0.0127
+          ],
+          [
+            0.9558,
+            0.0159
+          ],
+          [
+            0.9558,
+            0.0159
+          ],
+          [
+            0.9558,
+            0.0159
+          ],
+          [
+            0.941,
+            0.0158
+          ],
+          [
+            0.941,
+            0.0158
+          ],
+          [
+            0.941,
+            0.0158
+          ],
+          [
+            0.8656,
+            0.0486
+          ],
+          [
+            0.8656,
+            0.0486
+          ],
+          [
+            0.8656,
+            0.0486
+          ],
+          [
+            0.7635,
+            0.048
+          ],
+          [
+            0.7635,
+            0.048
+          ],
+          [
+            0.7635,
+            0.048
+          ],
+          [
+            0.7255,
+            0.0476
+          ],
+          [
+            0.7255,
+            0.0476
+          ],
+          [
+            0.6773,
+            0.0591
+          ],
+          [
+            0.6773,
+            0.0591
+          ],
+          [
+            0.6773,
+            0.0591
+          ],
+          [
+            0.6534,
+            0.0594
+          ],
+          [
+            0.6534,
+            0.0594
+          ],
+          [
+            0.6534,
+            0.0594
+          ],
+          [
+            0.5133,
+            0.1887
+          ],
+          [
+            0.5133,
+            0.1887
+          ],
+          [
+            0.5133,
+            0.1887
+          ],
+          [
+            0.4214,
+            0.1704
+          ],
+          [
+            0.4214,
+            0.1704
+          ],
+          [
+            0.4214,
+            0.1704
+          ],
+          [
+            0.405,
+            0.1801
+          ],
+          [
+            0.405,
+            0.1801
+          ],
+          [
+            0.3965,
+            0.1781
+          ],
+          [
+            0.3965,
+            0.1781
+          ],
+          [
+            0.3965,
+            0.1781
+          ],
+          [
+            0.3517,
+            0.2568
+          ],
+          [
+            0.3517,
+            0.2568
+          ],
+          [
+            0.3517,
+            0.2568
+          ],
+          [
+            0.3318,
+            0.2815
+          ],
+          [
+            0.3318,
+            0.2815
+          ],
+          [
+            0.3318,
+            0.2815
+          ],
+          [
+            0.2405,
+            0.4069
+          ],
+          [
+            0.2405,
+            0.4069
+          ],
+          [
+            0.2405,
+            0.4069
+          ],
+          [
+            0.1526,
+            0.3606
+          ],
+          [
+            0.1526,
+            0.3606
+          ],
+          [
+            0.1475,
+            0.3557
+          ],
+          [
+            0.1475,
+            0.3557
+          ],
+          [
+            0.1475,
+            0.3557
+          ],
+          [
+            0.1299,
+            0.5289
+          ],
+          [
+            0.1299,
+            0.5289
+          ],
+          [
+            0.1299,
+            0.5289
+          ],
+          [
+            0.1197,
+            0.5495
+          ],
+          [
+            0.1197,
+            0.5495
+          ],
+          [
+            0.1197,
+            0.5495
+          ],
+          [
+            0.0834,
+            0.9484
+          ],
+          [
+            0.0834,
+            0.9484
+          ],
+          [
+            0.0834,
+            0.9484
+          ],
+          [
+            0.0539,
+            0.9406
+          ],
+          [
+            0.0539,
+            0.9406
+          ],
+          [
+            0.0,
+            1.0
+          ]
+        ],
+        "model_only": [
+          [
+            1.0,
+            0.0127
+          ],
+          [
+            1.0,
+            0.0278
+          ],
+          [
+            1.0,
+            0.0278
+          ],
+          [
+            1.0,
+            0.0278
+          ],
+          [
+            1.0,
+            0.0278
+          ],
+          [
+            1.0,
+            0.0278
+          ],
+          [
+            1.0,
+            0.0278
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.0279
+          ],
+          [
+            1.0,
+            0.028
+          ],
+          [
+            1.0,
+            0.028
+          ],
+          [
+            1.0,
+            0.028
+          ],
+          [
+            1.0,
+            0.028
+          ],
+          [
+            1.0,
+            0.028
+          ],
+          [
+            1.0,
+            0.028
+          ],
+          [
+            1.0,
+            0.028
+          ],
+          [
+            1.0,
+            0.028
+          ],
+          [
+            1.0,
+            0.028
+          ],
+          [
+            1.0,
+            0.028
+          ],
+          [
+            1.0,
+            0.028
+          ],
+          [
+            1.0,
+            0.028
+          ],
+          [
+            1.0,
+            0.028
+          ],
+          [
+            1.0,
+            0.028
+          ],
+          [
+            1.0,
+            0.028
+          ],
+          [
+            1.0,
+            0.028
+          ],
+          [
+            0.9972,
+            0.0559
+          ],
+          [
+            0.9972,
+            0.056
+          ],
+          [
+            0.9938,
+            0.0724
+          ],
+          [
+            0.9892,
+            0.1102
+          ],
+          [
+            0.9779,
+            0.1732
+          ],
+          [
+            0.9558,
+            0.3805
+          ],
+          [
+            0.9495,
+            0.4878
+          ],
+          [
+            0.9336,
+            0.6743
+          ],
+          [
+            0.9109,
+            0.7982
+          ],
+          [
+            0.9007,
+            0.8384
+          ],
+          [
+            0.8695,
+            0.9012
+          ],
+          [
+            0.7969,
+            0.9798
+          ],
+          [
+            0.7572,
+            0.9889
+          ],
+          [
+            0.667,
+            0.9966
+          ],
+          [
+            0.5956,
+            0.9981
+          ],
+          [
+            0.0,
+            1.0
+          ]
+        ],
+        "rules_plus_model": [
+          [
+            1.0,
+            0.0127
+          ],
+          [
+            1.0,
+            0.0154
+          ],
+          [
+            1.0,
+            0.0154
+          ],
+          [
+            1.0,
+            0.0154
+          ],
+          [
+            1.0,
+            0.0154
+          ],
+          [
+            0.9994,
+            0.0164
+          ],
+          [
+            0.9926,
+            0.0166
+          ],
+          [
+            0.9904,
+            0.0275
+          ],
+          [
+            0.9904,
+            0.0275
+          ],
+          [
+            0.9904,
+            0.0275
+          ],
+          [
+            0.9904,
+            0.0275
+          ],
+          [
+            0.9904,
+            0.0275
+          ],
+          [
+            0.9904,
+            0.0275
+          ],
+          [
+            0.9904,
+            0.0275
+          ],
+          [
+            0.9904,
+            0.0275
+          ],
+          [
+            0.9904,
+            0.0276
+          ],
+          [
+            0.9904,
+            0.0276
+          ],
+          [
+            0.9904,
+            0.0276
+          ],
+          [
+            0.9898,
+            0.0374
+          ],
+          [
+            0.9779,
+            0.0489
+          ],
+          [
+            0.9603,
+            0.0535
+          ],
+          [
+            0.9592,
+            0.0555
+          ],
+          [
+            0.9501,
+            0.0589
+          ],
+          [
+            0.9461,
+            0.0609
+          ],
+          [
+            0.9365,
+            0.0703
+          ],
+          [
+            0.9365,
+            0.0704
+          ],
+          [
+            0.9319,
+            0.0791
+          ],
+          [
+            0.9274,
+            0.0815
+          ],
+          [
+            0.9229,
+            0.0989
+          ],
+          [
+            0.9229,
+            0.0991
+          ],
+          [
+            0.9206,
+            0.158
+          ],
+          [
+            0.9098,
+            0.2868
+          ],
+          [
+            0.9013,
+            0.2991
+          ],
+          [
+            0.8956,
+            0.3142
+          ],
+          [
+            0.8883,
+            0.322
+          ],
+          [
+            0.8826,
+            0.3323
+          ],
+          [
+            0.8798,
+            0.4509
+          ],
+          [
+            0.8729,
+            0.4904
+          ],
+          [
+            0.8633,
+            0.4977
+          ],
+          [
+            0.8514,
+            0.665
+          ],
+          [
+            0.8434,
+            0.6923
+          ],
+          [
+            0.8304,
+            0.7331
+          ],
+          [
+            0.8219,
+            0.7416
+          ],
+          [
+            0.8123,
+            0.8321
+          ],
+          [
+            0.7935,
+            0.8578
+          ],
+          [
+            0.7794,
+            0.8724
+          ],
+          [
+            0.7646,
+            0.8776
+          ],
+          [
+            0.7442,
+            0.8776
+          ],
+          [
+            0.7277,
+            0.9632
+          ],
+          [
+            0.7016,
+            0.9833
+          ],
+          [
+            0.6704,
+            0.9891
+          ],
+          [
+            0.6489,
+            0.9888
+          ],
+          [
+            0.6217,
+            0.9892
+          ],
+          [
+            0.5899,
+            0.9914
+          ],
+          [
+            0.5689,
+            0.9911
+          ],
+          [
+            0.5383,
+            0.9906
+          ],
+          [
+            0.5065,
+            0.99
+          ],
+          [
+            0.4844,
+            0.9907
+          ],
+          [
+            0.4328,
+            0.9922
+          ],
+          [
+            0.0,
+            1.0
+          ]
+        ]
+      }
+    },
+    "note": "Evaluated on SIMULATED transactions (chronological hold-out). 'at_app_threshold' is the deployed model: flagged (HOLD or DECLINE) when score > 0.25."
+  },
+  "limitations": [
+    "Trained and tested on SIMULATED Indian transactions; metrics show how well the system finds the simulated patterns, not real-world accuracy.",
+    "Simulated fraud prevalence (about 1.2%) is far higher than real-world rates, so precision is optimistic.",
+    "The model only sees card/merchant/location/time behaviour; it cannot see device, IP or customer-service signals.",
+    "Attributions on the transaction page are occlusion-based approximations, not exact Shapley values."
+  ]
+}

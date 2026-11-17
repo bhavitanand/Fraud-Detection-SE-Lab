@@ -50,6 +50,18 @@ curl -s -X POST localhost:8000/api/transactions -H "Authorization: Bearer $TOKEN
 ```
 The response contains `decision` (APPROVE / HOLD / DECLINE), `score` (0–1) and the `factors` that explain it.
 
+## Live mode, autopilot and copilot (v3)
+| Method and path | Role | Purpose |
+|---|---|---|
+| `GET /api/live/status` | any | engine state, counters, feed, KPIs from simulation ground truth, autopilot flag |
+| `POST /api/live/start` | admin | body `{cards, rate, days, fraud_boost, autopilot}`; 409 `already_running` if running |
+| `POST /api/live/stop` | admin | stop the engine |
+| `PUT /api/autopilot` | admin | body `{enabled}` |
+| `GET /api/copilot/status` | any | `gemini` or `offline` |
+| `GET /api/transactions/{id}/copilot` | any | summary, recommendation, cardholder message draft |
+| `POST /api/copilot/chat` | any | body `{question}`; returns the validated filter, an answer and rows |
+Simulated rows have `source = SIM`. `GET /api/models` items carry `kind` (`live` or `benchmark`); deploy and retire act per kind.
+
 ## Errors
 | Code | Meaning |
 |---|---|

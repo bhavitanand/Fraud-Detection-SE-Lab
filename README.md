@@ -1,11 +1,20 @@
 # Fraud Desk — credit card fraud review demonstrator (India)
 
-A Software Engineering Lab project (CIC-357): FastAPI + SQLite back end, React/TypeScript analyst console, a transparent rule engine and an offline-trained ML model. Amounts are in ₹; the synthetic customers, cities, merchants and MCC codes are Indian. Merchant and bank names are illustrative labels on invented data; nothing here is real customer data and no affiliation is implied.
+A Software Engineering Lab project (CIC-357): a card-fraud desk that scores a stream of Indian transactions with a trained model, blocks the obvious fraud on its own, messages cardholders, closes the cases they answer, and sends only the grey cases to a human analyst. FastAPI + SQLite back end, React/TypeScript console, XGBoost scorer, optional Gemini copilot. Amounts are in ₹; customers, cities, merchants and MCC codes are Indian and **synthetic**. Merchant and bank names are illustrative labels on invented data; no affiliation is implied.
 
 > **Not a payment system.** Card identifiers are synthetic tokens; blocking a token only changes this app's local behaviour. No bank or network integration, no PCI DSS certification, not production-ready.
-> **Scoring honesty:** live (Indian) transactions are scored by rules. The ML model was trained on the public ULB/Kaggle benchmark (2013, European cardholders, EUR, anonymised PCA features), so it applies only to transactions carrying those 28 features (benchmark replay). Its measured, held-out results are on the **ML model** page and in `ml/artifacts/*.json`.
+> **Accuracy honesty:** the live scorer is trained and tested on *simulated* Indian transactions (`ml/simulator.py`), so its precision and recall describe how well the system finds the simulated fraud patterns, not real-world accuracy. Simulated fraud is about 1.2% of rows, far above real life, which makes precision optimistic. The public ULB benchmark model (real 2013 European data, PR-AUC 0.78) is kept alongside it for an honest reference point.
 
 ![Overview page](docs/screenshots/02-overview.png)
+
+## Headline features
+| | |
+|---|---|
+| **Live mode** | A simulator streams Indian card activity through the real pipeline. Autopilot blocks obvious fraud, simulated cardholders answer the alert message, cases close themselves, and a dashboard shows precision, recall, ₹ protected, autonomy rate and scoring time. |
+| **Trained scorer** | XGBoost chosen from 5 candidates (logistic regression, random forest, HistGradientBoosting, XGBoost, LightGBM) on 692,633 simulated transactions, chronological split, isotonic calibration. Held-out: PR-AUC 0.934, precision 94.4%, recall 84.5%, 0.06% false alarms; the rule baseline alone gets PR-AUC 0.229. |
+| **Explainable** | Each decision shows the model's top reasons (occlusion-based attribution, an approximation) plus rule signals. Per-pattern recall, feature importance, calibration and PR curves are on the ML models page. |
+| **AI copilot** | Case summaries, recommended action and a drafted cardholder SMS; plain-English search ("declined orders above ₹50,000 in Mumbai"). Uses Gemini when `FRAUD_GEMINI_API_KEY` is set, otherwise a built-in offline engine. Only synthetic data is sent out, and the model never writes SQL: it fills a validated filter. |
+| **Deployable** | Dockerfile, docker-compose, Render blueprint, GitHub Actions CI, first-admin bootstrap from environment variables. |
 
 ## Documentation
 | Doc | What it covers |
@@ -28,22 +37,30 @@ pip install -r requirements.txt -r requirements-ml.txt   # the ML packages are o
 python -m app.cli create-user --email you@example.com --name "Your Name" --role admin   # prompts for a password (min 10 chars)
 uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
-Open http://127.0.0.1:8000. On Windows, `run-demo.ps1` does the same. API docs: `/docs`.
+Open http://127.0.0.1:8000, go to **Live mode** and press *Start simulation*. On Windows, `run-demo.ps1` does the same. API docs: `/docs`.
 First start creates `fraud_demo.sqlite` with 129 synthetic transactions (14 Indian cardholders, 19 merchants), alerts, cardholder messages and the shipped model.
+
+**Docker (one command).**
+```bash
+FRAUD_SECRET_KEY=$(openssl rand -hex 24) FRAUD_ADMIN_PASSWORD='change-me-please' docker compose up --build   # then open http://localhost:8000 and sign in as admin@frauddesk.demo
+```
+**Render.** Push the repo to GitHub, create a *Blueprint* from `render.yaml`, and set `FRAUD_ADMIN_PASSWORD` (and optionally `FRAUD_GEMINI_API_KEY`). The free plan has no persistent disk, so data resets on restart; that is fine for a demo.
 
 **Sign-in.** E-mail + password. Optional second step: set `FRAUD_LOGIN_OTP=true` and a 6-digit code is e-mailed (5-minute expiry, 5 attempts, single use). With the default `FRAUD_OTP_DELIVERY=console` the code is printed in the server terminal (development only); set `FRAUD_OTP_DELIVERY=smtp` plus `FRAUD_SMTP_HOST/PORT/USER/PASSWORD/FROM` for real e-mail. SMS/phone OTP is not implemented (it needs a paid provider). **No-login demo:** `FRAUD_AUTH_REQUIRED=false` (everyone is administrator `local-demo`; only on a machine you alone use).
 
 ## What is in the app
 | Page | Purpose |
 |---|---|
+| Live mode | start/stop the simulation, KPIs from simulation ground truth, autopilot actions, live feed |
+| AI copilot | plain-English transaction search; Gemini or offline |
 | Overview | volume, decisions, backlog, flagged value (₹), outcomes, trend; seeded vs live vs benchmark mix |
 | Transactions | search, filters, sort, pagination; submit a synthetic transaction (currency, city, channel) |
 | Alerts and cases | queue of holds/declines; assign to me; cardholder response; investigate |
-| Transaction page | score broken into factors, cardholder, merchant (MCC, risk), history, audit trail, verdict with confirmation |
+| Transaction page | model top reasons or rule factors, AI case summary and message draft, cardholder, merchant (MCC, risk), history, audit trail, verdict with confirmation |
 | Cards | tokens with cardholder, issuer, status; block/unblock (admin) |
 | Cardholder messages | simulated SMS/e-mail outbox with a one-time “Was this you?” link (`/confirm/…`, no sign-in) |
 | Fraud rules | thresholds, ₹ high-amount limit, blocked countries, velocity limit; factor catalogue |
-| ML model | held-out metrics with caveats, deploy/retire (admin), benchmark replay |
+| ML models | live scorer report (rules vs model, PR curve, per-pattern recall, importance, calibration) and the ULB benchmark; deploy/retire per model (admin); benchmark replay |
 | Reports | counts, fraud rate, false-positive share, analyst productivity, CSV exports |
 | Audit log | hash-chained events; **Verify integrity** (admin) |
 | Users / Account | admin user management; change own password |
@@ -51,12 +68,19 @@ First start creates `fraud_demo.sqlite` with 129 synthetic transactions (14 Indi
 Roles: **analyst** — view, submit, assign to self, record verdicts. **administrator** — also block/unblock, configuration, users, models, replay, audit verification. Enforced by the back end on every request.
 
 ## Scoring
-`score = 0.04 base + high amount (₹ > limit) 0.35 + blocked country 0.75 + online 0.10 + velocity 0.25 + unusual amount (>5× card average) 0.20 + new country 0.15 + new merchant 0.05 + impossible travel 0.35`, capped at 1 (a negative `score_cap` factor keeps factors summing to the score). With benchmark features and an active model: `1 − (1 − rules)(1 − p)`. `≤ approve_max` APPROVE, `≤ hold_max` HOLD, else DECLINE. Foreign currencies use fixed indicative rates (not live FX). Scoring sits behind a `Scorer` interface (`app/services/scoring.py`).
+Two paths behind one `Scorer` interface (`app/services/scoring.py`):
+1. **Live scorer (default for Indian transactions).** 19 engineered features (amount, amount vs the card's average and limit, channel, hour, velocity, new merchant/country, distance, speed, merchant risk) are computed by `ml/features.vectorize`, the same function used in training, so there is no train/serve skew. The calibrated XGBoost probability is the score. A blocked-country policy is layered on top. The nine rules still run and are shown as context (`rule_signals`) but do not inflate the score: combining them by noisy-OR raised false alarms from 0.06% to 19% in testing.
+2. **Rules only** (`heuristic-v2`) when no live model is active, and for the seeded demo rows. `0.04 base + high amount 0.35 + blocked country 0.75 + online 0.10 + velocity 0.25 + unusual amount 0.20 + new country 0.15 + new merchant 0.05 + impossible travel 0.35`, capped at 1.
+
+`≤ 0.25` APPROVE, `≤ 0.65` HOLD, else DECLINE (admin-editable). Benchmark rows (28 PCA features) use the ULB model combined with rules.
 
 ## Training the model (offline)
-Download `creditcard.csv` from Kaggle (ULB MLG; not distributed here) into `data/`, then:
 ```bash
 pip install -r requirements-ml.txt
+python -m ml.train_india --cards 3000 --days 150 --version v1 --register   # live scorer (simulated Indian data), about 2 minutes
+```
+For the public benchmark, download `creditcard.csv` from Kaggle (ULB MLG; not distributed here) into `data/`, then:
+```bash
 python -m ml.train --csv data/creditcard.csv --register    # writes ml/artifacts/*, registers a candidate; deploy it on the ML page
 ```
 Protocol: drop exact duplicates; chronological 60/20/20 split; candidates compared on validation PR-AUC; isotonic calibration on the validation split; test split used once. Artifacts are loaded only from `ml/artifacts` after their SHA-256 matches the registry (pickle files can run code).
@@ -70,6 +94,9 @@ Protocol: drop exact duplicates; chronological 60/20/20 split; candidates compar
 | `FRAUD_SECRET_KEY` | generated, stored in DB | token-signing key |
 | `FRAUD_CORS_ORIGINS` | Vite dev origins | allowed origins |
 | `FRAUD_SEED_DEMO` | `true` | create synthetic demo data on first start |
+| `FRAUD_ADMIN_EMAIL`, `FRAUD_ADMIN_PASSWORD` | unset | create the first administrator on start (password 10+ characters) |
+| `FRAUD_LIVE_MODEL` | `true` | register and activate the live scorer shipped in `ml/artifacts` |
+| `FRAUD_GEMINI_API_KEY`, `FRAUD_GEMINI_MODEL` | unset, `gemini-2.5-flash` | enable Gemini for the copilot; offline engine otherwise |
 
 ## Development
 ```bash
@@ -80,7 +107,7 @@ cd frontend && npm run dev                      # UI on :5173, /api proxied to :
 ## Tests
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest --cov=app                      # back end
+python -m pytest --cov=app                      # back end (195 tests)
 cd frontend && npm test && npm run build        # UI tests, strict tsc, production build
 python scripts/collect_results.py               # records measured results for the lab file
 ```

@@ -20,12 +20,14 @@ def tx_row(row: sqlite3.Row | None) -> dict | None:
     d["factors"] = json.loads(d["factors"] or "[]")
     d["has_alert"] = d["decision"] != "APPROVE"
     d.pop("benchmark_label", None)  # ground truth of benchmark rows is never shown to analysts
+    d.pop("sim_label", None)  # nor is the ground truth of simulated live rows
+    d.pop("sim_pattern", None)
     return d
 
 
 def insert_transaction(c: sqlite3.Connection, **v: Any) -> int:
     cols = ("token", "card_id", "amount", "currency", "merchant", "merchant_id", "country", "location", "channel", "created", "score", "decision",
-            "reasons", "factors", "scorer", "model_id", "source", "benchmark_label")
+            "reasons", "factors", "scorer", "model_id", "source", "benchmark_label", "sim_label", "sim_pattern", "latency_ms")
     row = {k: v.get(k) for k in cols}
     row["reasons"], row["factors"] = json.dumps(v["reasons"]), json.dumps(v["factors"])
     cur = c.execute(f"INSERT INTO transactions({','.join(cols)}) VALUES({','.join(':' + k for k in cols)})", row)
@@ -321,7 +323,7 @@ def list_notifications(c: sqlite3.Connection, limit: int, offset: int) -> tuple[
 
 # ---------- ML model registry ----------
 def insert_model(c: sqlite3.Connection, **v: Any) -> int:
-    cols = ("name", "version", "algorithm", "artifact_file", "artifact_sha256", "pr_auc", "precision_score", "recall_score", "f1_score", "metrics_json", "status", "trained_at", "registered_at")
+    cols = ("name", "version", "algorithm", "artifact_file", "artifact_sha256", "pr_auc", "precision_score", "recall_score", "f1_score", "metrics_json", "status", "trained_at", "registered_at", "kind")
     return c.execute(f"INSERT INTO ml_models({','.join(cols)}) VALUES({','.join('?' * len(cols))})", [v.get(k) for k in cols]).lastrowid
 
 
@@ -342,8 +344,8 @@ def list_models(c: sqlite3.Connection) -> list[dict]:
     return [_model_row(r) for r in c.execute("SELECT * FROM ml_models ORDER BY model_id DESC")]
 
 
-def active_model(c: sqlite3.Connection) -> dict | None:
-    return _model_row(c.execute("SELECT * FROM ml_models WHERE status='active' ORDER BY model_id DESC LIMIT 1").fetchone())
+def active_model(c: sqlite3.Connection, kind: str = "benchmark") -> dict | None:
+    return _model_row(c.execute("SELECT * FROM ml_models WHERE status='active' AND kind=? ORDER BY model_id DESC LIMIT 1", (kind,)).fetchone())
 
 
 def set_model_status(c: sqlite3.Connection, model_id: int, status: str) -> None:

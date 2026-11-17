@@ -212,5 +212,5 @@
     "max": 40.9,
     "note": "in-process, excludes network"
   },
-  "pytest_tail": "\nCoverage JSON written to file /home/claude/work/Fraud-Detection-SE-Lab-main/.results-tmp/cov.json\n181 passed, 1 warning in 60.43s (0:01:00)"
+  "pytest_tail": "\nCoverage JSON written to file ./.results-tmp/cov.json\n181 passed, 1 warning in 60.43s (0:01:00)"
 }

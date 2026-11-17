@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api/client";
-import type { ModelRow, ModelsResponse } from "../api/types";
+import type { LiveMeta, ModelRow, ModelsResponse } from "../api/types";
+import LiveModelReport from "../components/LiveModelReport";
 import { useAuth } from "../auth";
 import { Badge, ConfirmDialog, Empty, ErrorState, Loading, PageHead, useToast } from "../components/ui";
 import { errMsg, fmtPct, fmtTime, useAsync } from "../lib";
@@ -29,12 +30,23 @@ export default function Models() {
   const bm = data.benchmark;
   return (
     <>
-      <PageHead title="ML model" sub="Offline-trained classifier combined with the rules for transactions that carry the benchmark features.">
+      <PageHead title="ML models" sub="The live scorer for Indian transactions, plus the public European benchmark model.">
         <button className="btn" onClick={reload}>Refresh</button>
       </PageHead>
       {!data.ml_available && <div className="banner warn">scikit-learn is not installed on the server, so no model can be loaded. Scoring uses rules only.</div>}
-      <div className="banner">{data.training_note} Live Indian transactions have no anonymised features, so they are scored by the rules; the model applies to benchmark replays and to any gateway that supplies the 28 features.</div>
-      {data.items.length === 0 ? <Empty>No models registered.</Empty> : data.items.map((m) => {
+      <div className="banner">{data.training_note} The <strong>live scorer</strong> is trained on simulated Indian transactions and reads merchant, city, channel and timing. The <strong>benchmark model</strong> below was trained on the public ULB dataset (28 anonymised features) and applies only to benchmark replays.</div>
+      {data.items.filter((m) => m.kind === "live").map((m) => (
+        <div className="card mt" key={m.model_id}>
+          <div className="page-head" style={{ marginBottom: 8 }}>
+            <div><h2 style={{ marginBottom: 2 }}>{m.name} <Badge tone={m.status === "active" ? "green" : m.status === "retired" ? "gray" : "blue"}>{m.status}</Badge> <Badge tone="blue">Live scorer</Badge></h2>
+              <span className="muted">{m.algorithm.replace(/_/g, " ")} · trained {fmtTime(m.trained_at)} · scores every Indian transaction in Live mode and the API</span></div>
+            {isAdmin && (m.status === "active"
+              ? <button className="btn" onClick={() => { setErr(null); setAction({ m, kind: "retire" }); }}>Retire</button>
+              : <button className="btn primary" onClick={() => { setErr(null); setAction({ m, kind: "deploy" }); }}>Deploy</button>)}
+          </div>
+          <LiveModelReport meta={m.metrics as unknown as LiveMeta} />
+        </div>))}
+      {data.items.filter((m) => m.kind !== "live").length === 0 ? <Empty>No benchmark models registered.</Empty> : data.items.filter((m) => m.kind !== "live").map((m) => {
         const t = m.metrics.metrics.test, a = t.at_app_threshold;
         return (
           <div className="card mt" key={m.model_id}>

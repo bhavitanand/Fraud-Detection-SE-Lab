@@ -244,23 +244,82 @@ for k, items in NOTES.items():
     else:
         insert_before(anchor, out)
 
-# ------------------------------------------------------------------ index table: add rows 11-13
-index = next(t for t in doc.tables if len(t.columns) == 4 and t.rows[0].cells[0].text.strip().startswith("Exp"))
-titles = {11: "Testing: unit and integration testing with a testing tool (including black-box techniques)", 12: "Effort estimation using Function Point (FP) analysis", 13: "Time line chart: Gantt chart and PERT chart"}
-for n, title in titles.items():
-    row = copy.deepcopy(index.rows[-1]._tr)
-    index._tbl.append(row)
-    cells = index.rows[-1].cells
-    for c, text in zip(cells, [str(n), title, "", ""]):
-        for p in c.paragraphs[1:]:
-            p._p.getparent().remove(p._p)
-        rs = c.paragraphs[0].runs
-        if rs:
-            rs[0].text = text
-            for r_ in rs[1:]:
-                r_._r.getparent().remove(r_._r)
-        elif text:
-            c.paragraphs[0].add_run(text)
+# ------------------------------------------------------------------ index table: department format (rubrics R1-R5), 13 experiments
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+old_index = next(t for t in doc.tables if len(t.columns) == 4 and t.rows[0].cells[0].text.strip().startswith("Exp"))
+exp_titles = []
+for r_ in old_index.rows[1:]:
+    cs = r_.cells
+    t_ = cs[1].text.strip()
+    if "(CBS" in cs[0].text:
+        t_ += " " + cs[0].text[cs[0].text.index("("):].strip()
+    exp_titles.append(t_)
+exp_titles += ["Testing: unit and integration testing with a testing tool (including black-box techniques)", "Effort estimation using Function Point (FP) analysis", "Time line chart: Gantt chart and PERT chart"]
+RUBRICS = ["Is able to identify and define the objective of the given problem?", "Is proposed design /procedure /algorithm solves the problem?",
+           "Has the understanding of the tool/programming language to implement the proposed solution?", "Are the result(s) verified using sufficient test data to support the conclusions?", "Individuality of submission?"]
+WIDTHS = [1.0, 4.3, 1.15, 1.15, 1.15, 1.15, 1.15, 1.3, 1.6, 1.95]
+
+
+def _cell(c, text, bold=False, size=9, rot=False, align=1, width=None):
+    tcPr = c._tc.get_or_add_tcPr()
+    if width:
+        for w in tcPr.findall(qn("w:tcW")):
+            tcPr.remove(w)
+        w = OxmlElement("w:tcW"); w.set(qn("w:w"), str(int(width * 567))); w.set(qn("w:type"), "dxa"); tcPr.append(w)
+    if rot:
+        td = OxmlElement("w:textDirection"); td.set(qn("w:val"), "btLr"); tcPr.append(td)
+    va = OxmlElement("w:vAlign"); va.set(qn("w:val"), "center"); tcPr.append(va)
+    p_ = c.paragraphs[0]
+    p_.alignment = align
+    p_.paragraph_format.space_after = docx.shared.Pt(0)
+    p_.paragraph_format.space_before = docx.shared.Pt(0)
+    r_ = p_.add_run(text)
+    r_.bold = bold
+    r_.font.size = docx.shared.Pt(size)
+    r_.font.name = "Times New Roman"
+
+
+nrows = 3 + len(exp_titles)
+tbl = doc.add_table(rows=nrows, cols=10)
+tbl.style = old_index.style
+tbl.alignment = 1
+tbl.autofit = False
+tblPr = tbl._tbl.tblPr
+borders = OxmlElement("w:tblBorders")
+for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+    e_ = OxmlElement(f"w:{edge}"); e_.set(qn("w:val"), "single"); e_.set(qn("w:sz"), "6"); e_.set(qn("w:color"), "000000"); borders.append(e_)
+tblPr.append(borders)
+mar = OxmlElement("w:tblCellMar")
+for side in ("left", "right"):
+    m_ = OxmlElement(f"w:{side}"); m_.set(qn("w:w"), "40"); m_.set(qn("w:type"), "dxa"); mar.append(m_)
+tblPr.append(mar)
+lay = OxmlElement("w:tblLayout"); lay.set(qn("w:type"), "fixed"); tblPr.append(lay)
+for i, gc in enumerate(tbl._tbl.tblGrid.findall(qn('w:gridCol'))):
+    gc.set(qn('w:w'), str(int(WIDTHS[i] * 567)))
+for r_ in tbl.rows:
+    for i, c in enumerate(r_.cells):
+        c.width = docx.shared.Cm(WIDTHS[i])
+# header rows
+for i, label in ((0, "S.No"), (1, "Experiment"), (7, "Total Marks (10)"), (8, "Remarks"), (9, "Faculty Signature")):
+    m = tbl.cell(0, i).merge(tbl.cell(2, i))
+    _cell(m, label, bold=True, size=9, align=0 if i == 1 else 1, width=WIDTHS[i])
+for k in range(5):
+    _cell(tbl.cell(0, 2 + k), f"R{k + 1}", bold=True, size=10, width=WIDTHS[2 + k])
+    _cell(tbl.cell(1, 2 + k), RUBRICS[k], size=8, rot=True, width=WIDTHS[2 + k])
+    _cell(tbl.cell(2, 2 + k), "2 Marks", bold=True, size=6.5, width=WIDTHS[2 + k])
+h = tbl.rows[1]._tr.get_or_add_trPr(); he = OxmlElement("w:trHeight"); he.set(qn("w:val"), str(int(4.6 * 567))); he.set(qn("w:hRule"), "atLeast"); h.append(he)
+for n_, title in enumerate(exp_titles, 1):
+    r_ = tbl.rows[2 + n_]
+    _cell(r_.cells[0], str(n_), size=9, width=WIDTHS[0])
+    _cell(r_.cells[1], title, size=8.5, align=0, width=WIDTHS[1])
+    for j in range(2, 10):
+        _cell(r_.cells[j], "", width=WIDTHS[j])
+    trPr = r_._tr.get_or_add_trPr(); he = OxmlElement("w:trHeight"); he.set(qn("w:val"), str(int(1.0 * 567))); he.set(qn("w:hRule"), "atLeast"); trPr.append(he)
+    cs_ = OxmlElement("w:cantSplit"); trPr.append(cs_)
+old_index._tbl.addnext(tbl._tbl)
+old_index._tbl.getparent().remove(old_index._tbl)
+index = tbl
 
 # ------------------------------------------------------------------ new experiments: copy the Experiment 10 heading style
 last_result = next(p for p in reversed(doc.paragraphs) if p.text.strip().startswith("Result"))

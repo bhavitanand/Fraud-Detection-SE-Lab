@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: fraud-desk
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: FRAUD_SECRET_KEY
+        generateValue: true
+      - key: FRAUD_ADMIN_EMAIL
+        value: admin@frauddesk.demo
+      - key: FRAUD_ADMIN_PASSWORD
+        sync: false
+      - key: FRAUD_GEMINI_API_KEY
+        sync: false

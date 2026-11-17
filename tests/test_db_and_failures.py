@@ -14,7 +14,7 @@ def test_init_is_idempotent_and_seed_runs_once(settings):
     init_database(settings)
     c = connect(settings.db_path)
     n = c.execute("select count(*) from transactions").fetchone()[0]
-    assert n > 100 and migrations.current_version(c) == migrations.LATEST == 3
+    assert n > 100 and migrations.current_version(c) == migrations.LATEST == 4
     assert c.execute("select count(*) from audit where action='demo_data_seeded'").fetchone()[0] == 1
 
 
@@ -90,3 +90,13 @@ def test_static_serving_falls_back_to_index_and_blocks_traversal(tmp_path):
         for evil in ("/..%2fsecret.txt", "/%2e%2e/secret.txt", "/../secret.txt"):
             assert "TOP-SECRET" not in c.get(evil).text
         assert c.get("/api/nope").status_code == 404 and "SPA-INDEX" not in c.get("/api/nope").text
+
+
+def test_admin_is_bootstrapped_from_settings_once(tmp_path):
+    s = make_settings(tmp_path, admin_email="Boss@Example.com", admin_password="a-long-password-1")
+    init_database(s)
+    init_database(s)
+    c = connect(s.db_path)
+    rows = c.execute("select username, role from users").fetchall()
+    assert [(r[0], r[1]) for r in rows] == [("boss@example.com", "admin")]
+    assert c.execute("select count(*) from audit where action='user_created'").fetchone()[0] == 1

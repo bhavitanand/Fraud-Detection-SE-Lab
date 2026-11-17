@@ -1,5 +1,14 @@
 # Changelog
 
+## v3.0 — 2026-11-17
+- **Live mode:** background engine streams simulated Indian transactions through the real pipeline; dashboard with ground-truth KPIs.
+- **Autopilot:** auto-blocks declines scoring ≥ 0.90, closes alerts from cardholder replies, releases its own blocks on "it was me"; unanswered cases stay in the human queue. Off by default, admin-toggled.
+- **Live scorer:** XGBoost trained on 692,633 simulated Indian transactions (5 candidates compared), with 19 shared train/serve features, calibration and per-transaction top reasons. Schema v4.
+- **AI copilot:** case summaries, message drafts and natural-language search; Gemini with an offline fallback; searches run through a validated filter, never generated SQL.
+- Models page shows rules vs model, PR curve, per-pattern recall, importance and calibration.
+- Docker, compose, Render blueprint, CI workflow, environment-based first-admin bootstrap.
+- Tests: 195 back end (95% coverage), 29 front end.
+
 ## v2.1 — 2026-10-23
 - Added UI screenshots, `docs/SETUP.md`, `docs/ARCHITECTURE.md`, `docs/API.md`, `docs/DEMO.md`.
 - Rewrote `STATUS.md` as a single current-state document.

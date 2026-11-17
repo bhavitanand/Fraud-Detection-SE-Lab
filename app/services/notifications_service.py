@@ -63,4 +63,6 @@ def record_reply(conn: sqlite3.Connection, token: str, reply: str, at=None) -> d
             blocked = repo.set_card_blocked(conn, tx["token"], True, "cardholder", f"Cardholder reported transaction #{tx['id']} as not theirs", at)
             if blocked:
                 repo.insert_audit(conn, at, "cardholder", "card_blocked", {"token": tx["token"], "reason": "cardholder reported not me"}, f"card:{tx['token']}")
+    from . import autopilot_service
+    autopilot_service.on_reply(conn, tx["id"], reply, at)
     return {"ok": True, "reply": reply, "card_blocked": reply == "NOT_ME"}

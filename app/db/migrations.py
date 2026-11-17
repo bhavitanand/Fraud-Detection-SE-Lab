@@ -102,6 +102,14 @@ MIGRATIONS.append((3, "Indian domain model: customers, merchants, cards, alerts,
        FROM transactions t LEFT JOIN fraud_alerts a ON a.txn_id=t.id""",
     "CREATE VIEW analysts AS SELECT rowid AS analyst_id, COALESCE(name, username) AS name, username AS email, role FROM users",
 ]))
+MIGRATIONS.append((4, "live engine: model kinds, simulation ground truth, autopilot columns", [
+    "ALTER TABLE ml_models ADD COLUMN kind TEXT NOT NULL DEFAULT 'benchmark'",
+    "ALTER TABLE transactions ADD COLUMN sim_label INTEGER",
+    "ALTER TABLE transactions ADD COLUMN sim_pattern TEXT",
+    "ALTER TABLE transactions ADD COLUMN latency_ms REAL",
+    "ALTER TABLE fraud_alerts ADD COLUMN auto_resolved INTEGER NOT NULL DEFAULT 0",
+    "CREATE INDEX ix_tx_source ON transactions(source, id)",
+]))
 LATEST = MIGRATIONS[-1][0]
 
 

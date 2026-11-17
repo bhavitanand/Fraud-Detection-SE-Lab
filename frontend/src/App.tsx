@@ -9,6 +9,8 @@ import Alerts from "./pages/Alerts";
 import Audit from "./pages/Audit";
 import Cards from "./pages/Cards";
 import Confirm from "./pages/Confirm";
+import Copilot from "./pages/Copilot";
+import Live from "./pages/Live";
 import Login from "./pages/Login";
 import Models from "./pages/Models";
 import Outbox from "./pages/Outbox";
@@ -23,8 +25,8 @@ function Shell() {
   const { me, logout, isAdmin } = useAuth();
   const loc = useLocation();
   const { data } = useAsync(() => api.get<Page<Transaction>>("/api/transactions", { review: "OPEN", page_size: 1 }), [loc.pathname]);
-  const links: [string, string][] = [["/", "Overview"], ["/transactions", "Transactions"], ["/alerts", "Alerts and cases"], ["/cards", "Cards"], ["/outbox", "Cardholder messages"],
-    ["/rules", "Fraud rules"], ["/models", "ML model"], ["/reports", "Reports"], ["/audit", "Audit log"], ...(isAdmin ? [["/users", "Users"] as [string, string]] : [])];
+  const links: [string, string][] = [["/", "Overview"], ["/live", "Live mode"], ["/transactions", "Transactions"], ["/alerts", "Alerts and cases"], ["/cards", "Cards"], ["/outbox", "Cardholder messages"],
+    ["/copilot", "AI copilot"], ["/rules", "Fraud rules"], ["/models", "ML model"], ["/reports", "Reports"], ["/audit", "Audit log"], ...(isAdmin ? [["/users", "Users"] as [string, string]] : [])];
   return (
     <div className="shell">
       <a className="skip" href="#main">Skip to content</a>
@@ -52,6 +54,8 @@ function Gate() {
     <Routes>
       <Route element={<Shell />}>
         <Route index element={<Overview />} />
+        <Route path="live" element={<Live />} />
+        <Route path="copilot" element={<Copilot />} />
         <Route path="transactions" element={<Transactions />} />
         <Route path="transactions/:id" element={<TransactionDetail />} />
         <Route path="alerts" element={<Alerts />} />

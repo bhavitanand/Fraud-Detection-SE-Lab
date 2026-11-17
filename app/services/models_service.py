@@ -19,13 +19,13 @@ def register_from_meta(conn: sqlite3.Connection, meta: dict, status: str = "cand
     with transaction(conn):
         mid = repo.insert_model(
             conn, name=meta["name"], version=meta["version"], algorithm=meta["algorithm"], artifact_file=meta["artifact_file"],
-            artifact_sha256=meta["artifact_sha256"], pr_auc=meta["metrics"]["test"]["pr_auc"], precision_score=t["precision"], recall_score=t["recall"], f1_score=t["f1"],
+            artifact_sha256=meta["artifact_sha256"], kind=meta.get("kind", "benchmark"), pr_auc=meta["metrics"]["test"]["pr_auc"], precision_score=t["precision"], recall_score=t["recall"], f1_score=t["f1"],
             metrics_json=json.dumps(meta), status=status, trained_at=meta["trained_at"], registered_at=now_iso())
         repo.insert_audit(conn, now_iso(), "system", "model_registered", {"model_id": mid, "name": meta["name"], "status": status}, f"model:{mid}")
     return mid
 
 
-def bootstrap_registry(conn: sqlite3.Connection, artifacts_dir: Path = ARTIFACTS_DIR) -> None:
+def bootstrap_registry(conn: sqlite3.Connection, artifacts_dir: Path = ARTIFACTS_DIR, include_live: bool = True) -> None:
     """Register artifacts shipped in ml/artifacts that are not yet known. The first one becomes active if nothing is."""
     for meta_file in sorted(artifacts_dir.glob("*.json")):
         try:
@@ -34,7 +34,10 @@ def bootstrap_registry(conn: sqlite3.Connection, artifacts_dir: Path = ARTIFACTS
                 continue
             if conn.execute("SELECT 1 FROM ml_models WHERE artifact_sha256=?", (meta["artifact_sha256"],)).fetchone():
                 continue
-            register_from_meta(conn, meta, "active" if repo.active_model(conn) is None else "candidate")
+            kind = meta.get("kind", "benchmark")
+            if kind == "live" and not include_live:
+                continue
+            register_from_meta(conn, meta, "active" if repo.active_model(conn, kind) is None else "candidate")
         except (KeyError, ValueError, sqlite3.IntegrityError):
             continue
 
@@ -49,11 +52,11 @@ def deploy(conn: sqlite3.Connection, svc: ModelService, model_id: int, actor: st
         if not svc.available:
             raise Conflict("scikit-learn is not installed on the server, so models cannot be deployed.", code="ml_unavailable")
         for other in repo.list_models(conn):
-            if other["status"] == "active":
+            if other["status"] == "active" and other["kind"] == m["kind"]:
                 repo.set_model_status(conn, other["model_id"], "retired")
         repo.set_model_status(conn, model_id, "active")
         repo.insert_audit(conn, now_iso(), actor, "model_deployed", {"model_id": model_id, "name": m["name"]}, f"model:{model_id}")
-    live = svc.load(repo.active_model(conn))
+    live = svc.load(repo.active_model(conn, m["kind"]), m["kind"])
     if not live:  # artifact failed verification: roll the registry back so status never lies about what scores traffic
         with transaction(conn):
             repo.set_model_status(conn, model_id, "candidate")
@@ -71,7 +74,7 @@ def retire(conn: sqlite3.Connection, svc: ModelService, model_id: int, actor: st
             raise Conflict("Only the active model can be retired.", code="not_active")
         repo.set_model_status(conn, model_id, "retired")
         repo.insert_audit(conn, now_iso(), actor, "model_retired", {"model_id": model_id, "name": m["name"]}, f"model:{model_id}")
-    svc.load(None)  # scoring falls back to rules only
+    svc.unload(m["kind"])  # scoring falls back to rules only for that kind
     return repo.get_model(conn, model_id)
 
 

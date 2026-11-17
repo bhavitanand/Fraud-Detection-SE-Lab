@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import sqlite3
+import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.core.errors import Conflict, Forbidden, Invalid, NotFound
 from app.db.session import transaction
@@ -14,6 +15,9 @@ from .common import iso, now_dt
 from .geo import CITIES, to_inr
 from .scoring import Scorer, ScoringInput, decide
 from .settings_service import load_risk_config
+
+
+IST = timezone(timedelta(hours=5, minutes=30))
 
 
 @dataclass(frozen=True)
@@ -28,6 +32,8 @@ class NewTx:
     anon_features: tuple[float, ...] | None = None
     source: str = "LIVE"
     benchmark_label: int | None = None
+    sim_label: int | None = None  # ground truth of simulated live rows (never shown to analysts)
+    sim_pattern: str | None = None
 
 
 def from_request(t: TransactionIn) -> NewTx:
@@ -59,13 +65,18 @@ def ingest(conn: sqlite3.Connection, tx: NewTx, scorer: Scorer, actor: str, at: 
                     hours_since = max((now - datetime.fromisoformat(last["created"])).total_seconds() / 3600, 0.0)
                 except ValueError:
                     hours_since = None
+            merch = repo.get_merchant(conn, merchant_id) or {}
             inp = ScoringInput(
                 amount_inr=to_inr(tx.amount, tx.currency), country=tx.country, channel=tx.channel, prior_tx_24h=repo.count_recent(conn, token, iso(now - timedelta(hours=24))),
                 home_country=(customer or {}).get("home_country", "IN"), history_count=hist["count"], history_avg_inr=to_inr(hist["avg_amount"], tx.currency),
                 seen_countries=frozenset(hist["countries"]), seen_merchant=(merchant_id in hist["merchants"]) or hist["count"] == 0, city=tx.location,
                 last_city=last["location"] if last else None, hours_since_last=hours_since, rules_applicable=tx.source != "BENCH",
-                anon_features=tx.anon_features, amount_raw=tx.amount)
+                anon_features=tx.anon_features, amount_raw=tx.amount,
+                hour=now.astimezone(IST).hour, merchant_risk={"LOW": 0, "MEDIUM": 1, "HIGH": 2}.get(merch.get("risk_level", "MEDIUM"), 1),
+                credit_limit=to_inr(card.get("credit_limit") or 0.0, "INR"))
+            t_score = time.perf_counter()
             result = scorer.score(inp, cfg)
+            latency_ms = round((time.perf_counter() - t_score) * 1000, 2)
             decision = decide(result.score, cfg)
             factors = [f.as_dict() for f in result.factors]
             reasons = [f["label"] for f in factors if f["code"] not in ("base", "score_cap")]
@@ -73,7 +84,8 @@ def ingest(conn: sqlite3.Connection, tx: NewTx, scorer: Scorer, actor: str, at: 
             tx_id = repo.insert_transaction(
                 conn, token=token, card_id=card_id, amount=tx.amount, currency=tx.currency, merchant=tx.merchant, merchant_id=merchant_id, country=tx.country,
                 location=tx.location, channel=tx.channel, created=created, score=result.score, decision=decision, reasons=reasons, factors=factors,
-                scorer=result.version, model_id=result.model_id, source=tx.source, benchmark_label=tx.benchmark_label)
+                scorer=result.version, model_id=result.model_id, source=tx.source, benchmark_label=tx.benchmark_label,
+                sim_label=tx.sim_label, sim_pattern=tx.sim_pattern, latency_ms=latency_ms)
             alert_id = repo.create_alert(conn, tx_id, result.score, created) if decision != "APPROVE" else None
             if alert_id:
                 notifications_service.queue_fraud_alert(conn, at=now, tx_id=tx_id, card=card, customer=customer, amount=tx.amount, currency=tx.currency,
@@ -84,6 +96,8 @@ def ingest(conn: sqlite3.Connection, tx: NewTx, scorer: Scorer, actor: str, at: 
                               {"transaction_id": tx_id, "score": result.score, "decision": decision, "alert_created": out["alert_created"]}, f"transaction:{tx_id}")
     if rejected:
         raise Conflict("Card token is blocked; transaction rejected.", code="card_blocked")
+    from . import autopilot_service  # local import: autopilot builds on this module
+    autopilot_service.on_scored(conn, out, token, now)
     return out
 
 

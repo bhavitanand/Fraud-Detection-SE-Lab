@@ -7,11 +7,11 @@
         ▼
  FastAPI app (app/main.py, app factory)
    api/routes.py        thin HTTP layer, role checks via Depends(...)
-   services/*           business logic: scoring, transactions, cards, auth, reports, ML, notifications
+   services/*           business logic: scoring, transactions, cards, auth, reports, ML, notifications, autopilot, live engine, copilot
    repositories/        all SQL (db_access.py)
    schemas/models.py    Pydantic request/response validation
    core/                settings, security (Argon2, JWT), errors, audit hash chain
-   db/                  connection, versioned migrations (v1 → v3)
+   db/                  connection, versioned migrations (v1 → v4)
         │
         ▼
  SQLite file (WAL mode)            ml/artifacts/ (verified model files)
@@ -54,3 +54,10 @@ React Router pages (`pages/`), a typed API client (`api/`), auth context (`auth.
 
 ## Not included (by design)
 Real payment authorisation, bank or card-network integration, SMS, PostgreSQL/Redis, TLS termination, PCI DSS compliance. See `docs/lab-alignment.md` for how the lab's target architecture differs from this build.
+
+## v3 additions
+- **Live engine** (`services/live_service.py`): one daemon thread with its own SQLite connection. A simulated clock and an event heap generate genuine and fraudulent events from `ml/simulator.py`; each goes through `transactions_service.ingest` exactly like an API call. Replies and card re-issues are scheduled as future events. Ground truth is stored in `transactions.sim_label` and used only for KPIs. The clock starts in the past and stops when it reaches real time.
+- **Autopilot** (`services/autopilot_service.py`): hooks after scoring (auto-block) and after a cardholder reply (close the alert, release its own blocks). Every action is audited with actor `autopilot`. Config keys `autopilot_enabled`, `auto_block_score`.
+- **Live scorer** (`ml/features.py`, `ml/train_india.py`, `LiveModel` in `ml/wrapper.py`): model registry rows have a `kind` (`benchmark` or `live`), one active model per kind. Per-transaction reasons come from occlusion of feature groups.
+- **Copilot** (`services/copilot_service.py`): Gemini over REST with timeouts and an offline fallback. Search never executes generated SQL: a validated filter is turned into a whitelisted, parameterised query.
+- **Deployment**: multi-stage Dockerfile (Node build, Python runtime, non-root, health check), compose with a data volume, Render blueprint, CI workflow.

@@ -23,9 +23,12 @@ def init_database(settings: Settings) -> str:
         version = migrate(conn)
         settings_service.ensure_defaults(conn)
         secret = auth_service.ensure_secret(conn, settings.secret_key)
-        bootstrap_registry(conn)
+        bootstrap_registry(conn, include_live=settings.live_model)
         if settings.seed_demo and repo.get_meta(conn, "seeded") is None:
             seed_demo_data(conn)
+        if settings.admin_email and settings.admin_password and repo.get_user(conn, settings.admin_email.strip().lower()) is None:
+            auth_service.create_user(conn, settings.admin_email, settings.admin_password, "admin", "Administrator", "bootstrap")
+            log.info("first administrator created from the environment")
         log.info("database ready (schema v%s)", version)
         return secret
     finally:

@@ -9,7 +9,7 @@ export const DecisionBadge = ({ d }: { d: Decision }) => <Badge tone={d === "DEC
 export const ReviewBadge = ({ r }: { r: Review }) => (
   <Badge tone={r === "OPEN" ? "amber" : r === "CONFIRMED_FRAUD" ? "red" : r === "FALSE_POSITIVE" ? "blue" : "gray"}>{r === "NOT_REQUIRED" ? "No alert" : label(r)}</Badge>
 );
-export const SourceBadge = ({ s }: { s: Source }) => <Badge tone={s === "LIVE" ? "blue" : "gray"}>{s === "SEED" ? "Demo seed" : s === "BENCH" ? "Benchmark" : "Live"}</Badge>;
+export const SourceBadge = ({ s }: { s: Source }) => <Badge tone={s === "LIVE" || s === "SIM" ? "blue" : "gray"}>{s === "SEED" ? "Demo seed" : s === "BENCH" ? "Benchmark" : s === "SIM" ? "Simulated" : "Live"}</Badge>;
 
 export function Score({ value }: { value: number }) {
   const color = value > 0.65 ? "var(--red)" : value > 0.25 ? "var(--amber)" : "var(--green)";

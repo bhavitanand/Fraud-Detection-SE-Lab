@@ -36,7 +36,7 @@ from app.services.scoring import HeuristicScorer, RiskConfig
 
 from .features import FEATURES, GROUPS, vectorize
 from .simulator import FRAUD_EPISODE_PER_CARD_DAY, FRAUD_PATTERNS, build_dataset
-from .wrapper import CalibratedModel, LiveModel
+from .wrapper import CalibratedModel, LiveModel, PortableXGB
 
 ART = Path(__file__).resolve().parent / "artifacts"
 CFG = RiskConfig()

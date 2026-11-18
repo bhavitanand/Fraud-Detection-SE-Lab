@@ -1,4 +1,6 @@
 import os
+
+os.environ["FRAUD_NO_DOTENV"] = "1"  # tests never read a developer's local .env
 import tempfile
 from pathlib import Path
 

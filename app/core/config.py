@@ -13,6 +13,24 @@ def _flag(name: str, default: bool) -> bool:
     return default if raw is None else raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _load_dotenv(path: Path) -> None:
+    """Read KEY=value lines from a local .env file. Real environment variables win; blank values are ignored."""
+    if os.getenv("FRAUD_NO_DOTENV"):
+        return
+    try:
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        value = value.strip().strip('"').strip("'")
+        if key.strip() and value:
+            os.environ.setdefault(key.strip(), value)
+
+
 @dataclass(frozen=True)
 class Settings:
     db_path: Path
@@ -37,6 +55,7 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
+        _load_dotenv(ROOT / ".env")
         origins = os.getenv("FRAUD_CORS_ORIGINS")
         return cls(
             db_path=Path(os.getenv("FRAUD_DB", ROOT / "fraud_demo.sqlite")),

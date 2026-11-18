@@ -94,6 +94,7 @@ Protocol: drop exact duplicates; chronological 60/20/20 split; candidates compar
 | `FRAUD_SECRET_KEY` | generated, stored in DB | token-signing key |
 | `FRAUD_CORS_ORIGINS` | Vite dev origins | allowed origins |
 | `FRAUD_SEED_DEMO` | `true` | create synthetic demo data on first start |
+| *(any of these)* | | can also be put in a `.env` file in the project root (copy `.env.example`); real environment variables win |
 | `FRAUD_ADMIN_EMAIL`, `FRAUD_ADMIN_PASSWORD` | unset | create the first administrator on start (password 10+ characters) |
 | `FRAUD_LIVE_MODEL` | `true` | register and activate the live scorer shipped in `ml/artifacts` |
 | `FRAUD_GEMINI_API_KEY`, `FRAUD_GEMINI_MODEL` | unset, `gemini-2.5-flash` | enable Gemini for the copilot; offline engine otherwise |

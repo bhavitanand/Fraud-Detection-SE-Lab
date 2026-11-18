@@ -158,3 +158,18 @@ def test_shipped_live_model_scores_with_top_reasons_and_blocked_country_policy(t
         assert top and {"feature", "impact"} <= set(top[0])
         bad = c.post("/api/transactions", json=tx(card_token="SYNTH-IN-1008", amount=90000, country="KP")).json()
         assert bad["decision"] == "DECLINE"
+
+
+def test_re_exported_artifact_refreshes_the_registered_hash(tmp_path):
+    pytest.importorskip("xgboost")
+    s = make_settings(tmp_path, live_model=True)
+    with TestClient(create_app(s)):
+        pass
+    c = connect(s.db_path)
+    c.execute("UPDATE ml_models SET artifact_sha256='stale' WHERE kind='live'")
+    c.commit()
+    c.close()
+    with TestClient(create_app(s)) as cl:  # restart: the registry heals itself and the model loads again
+        live = [m for m in cl.get("/api/models").json()["items"] if m["kind"] == "live"]
+        assert len(live) == 1 and live[0]["status"] == "active"
+        assert cl.get("/api/live/status").json()["model"]["name"] == "india_xgboost_v1"

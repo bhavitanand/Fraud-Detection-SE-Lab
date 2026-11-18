@@ -10,6 +10,25 @@ def make_row(anon_features, amount: float) -> np.ndarray:
     return np.array([[*anon_features, np.log1p(max(amount, 0.0))]], dtype=float)
 
 
+class PortableXGB:
+    """XGBClassifier that pickles as XGBoost's own JSON model format, so the artifact loads across OS and wheel builds."""
+
+    def __init__(self, clf) -> None:
+        self.clf = clf
+
+    def predict_proba(self, X):
+        return self.clf.predict_proba(X)
+
+    def __getstate__(self):
+        return {"raw": bytes(self.clf.get_booster().save_raw("json")), "params": self.clf.get_params()}
+
+    def __setstate__(self, state) -> None:
+        from xgboost import XGBClassifier
+        clf = XGBClassifier(**state["params"])
+        clf.load_model(bytearray(state["raw"]))
+        self.clf = clf
+
+
 class CalibratedModel:
     def __init__(self, clf, calibrator) -> None:
         self.clf, self.calibrator = clf, calibrator

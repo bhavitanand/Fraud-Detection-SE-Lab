@@ -4,7 +4,7 @@
   "version": "v1",
   "algorithm": "xgboost",
   "artifact_file": "india_xgboost_v1.joblib",
-  "artifact_sha256": "1db621ba2af53e2daafdcc37af81a29bcbe937a380d5a9676538162d6478cd69",
+  "artifact_sha256": "7ceb7c21fa2dceef673c9daead0c4ee917f9911a56433fb13bc8d24506555491",
   "trained_at": "2026-11-17T16:09:09+00:00",
   "sklearn": "1.9.1",
   "features": [
@@ -1026,5 +1026,6 @@
     "Simulated fraud prevalence (about 1.2%) is far higher than real-world rates, so precision is optimistic.",
     "The model only sees card/merchant/location/time behaviour; it cannot see device, IP or customer-service signals.",
     "Attributions on the transaction page are occlusion-based approximations, not exact Shapley values."
-  ]
+  ],
+  "portable_xgboost": true
 }

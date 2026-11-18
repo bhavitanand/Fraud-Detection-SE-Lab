@@ -132,7 +132,8 @@ def main(argv=None) -> int:
     best = max(val_ap, key=val_ap.get)
     clf = fitted[best]
     iso = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0).fit(clf.predict_proba(X[sl["val"]])[:, 1], y[sl["val"]])
-    cal = CalibratedModel(clf, iso)
+    from xgboost import XGBClassifier
+    cal = CalibratedModel(PortableXGB(clf) if isinstance(clf, XGBClassifier) else clf, iso)
     baseline = np.median(X[sl["train"]], axis=0)
     live = LiveModel(cal, FEATURES, baseline.tolist(), GROUPS)
 

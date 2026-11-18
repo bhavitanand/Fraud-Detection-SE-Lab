@@ -37,12 +37,12 @@ def bootstrap_registry(conn: sqlite3.Connection, artifacts_dir: Path = ARTIFACTS
             kind = meta.get("kind", "benchmark")
             if kind == "live" and not include_live:
                 continue
-            stale = conn.execute("SELECT id FROM ml_models WHERE name=?", (meta["name"],)).fetchone()
+            stale = conn.execute("SELECT model_id FROM ml_models WHERE name=?", (meta["name"],)).fetchone()
             if stale:  # same model name re-exported (new file hash): the shipped artifact is the source of truth
                 with transaction(conn):
-                    conn.execute("UPDATE ml_models SET artifact_sha256=?, artifact_file=?, metrics_json=? WHERE id=?",
-                                 (meta["artifact_sha256"], meta["artifact_file"], json.dumps(meta), stale["id"]))
-                    repo.insert_audit(conn, now_iso(), "system", "model_artifact_refreshed", {"model_id": stale["id"], "name": meta["name"]}, f"model:{stale['id']}")
+                    conn.execute("UPDATE ml_models SET artifact_sha256=?, artifact_file=?, metrics_json=? WHERE model_id=?",
+                                 (meta["artifact_sha256"], meta["artifact_file"], json.dumps(meta), stale["model_id"]))
+                    repo.insert_audit(conn, now_iso(), "system", "model_artifact_refreshed", {"model_id": stale["model_id"], "name": meta["name"]}, f"model:{stale['model_id']}")
                 continue
             register_from_meta(conn, meta, "active" if repo.active_model(conn, kind) is None else "candidate")
         except (KeyError, ValueError, sqlite3.IntegrityError):

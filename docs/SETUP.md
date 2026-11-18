@@ -20,7 +20,7 @@ python -m venv .venv
 pip install -r requirements.txt -r requirements-ml.txt
 cd frontend; npm install; npm run build; cd ..
 python -m app.cli create-user --email you@example.com --name "Your Name" --role admin
-uvicorn app.main:app --host 127.0.0.1 --port 8000
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 If PowerShell blocks the activate script: `Set-ExecutionPolicy -Scope Process Bypass`, then retry.
 
@@ -30,7 +30,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt -r requirements-ml.txt
 (cd frontend && npm install && npm run build)
 python -m app.cli create-user --email you@example.com --name "Your Name" --role admin
-uvicorn app.main:app --host 127.0.0.1 --port 8000
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 `create-user` asks for a password (minimum 10 characters). The first server start creates `fraud_demo.sqlite` with 129 synthetic transactions, 14 Indian cardholders, 19 merchants, 18 alerts and the trained model.
@@ -60,7 +60,7 @@ python -m pytest --cov=app
 cd frontend && npm test
 ```
 
-**Developer mode (hot reload).** Terminal 1: `uvicorn app.main:app --reload --port 8000`. Terminal 2: `cd frontend && npm run dev`, then open http://localhost:5173.
+**Developer mode (hot reload).** Terminal 1: `python -m uvicorn app.main:app --reload --port 8000`. Terminal 2: `cd frontend && npm run dev`, then open http://localhost:5173.
 
 ## 6. Troubleshooting
 | Symptom | Fix |

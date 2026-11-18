@@ -35,7 +35,7 @@ python -m venv .venv && source .venv/bin/activate        # Windows: .venv\Script
 pip install -r requirements.txt -r requirements-ml.txt   # the ML packages are optional: without them the app runs rules-only
 (cd frontend && npm install && npm run build)             # skip if frontend/dist is already present
 python -m app.cli create-user --email you@example.com --name "Your Name" --role admin   # prompts for a password (min 10 chars)
-uvicorn app.main:app --host 127.0.0.1 --port 8000
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 Open http://127.0.0.1:8000, go to **Live mode** and press *Start simulation*. On Windows, `run-demo.ps1` does the same. API docs: `/docs`.
 First start creates `fraud_demo.sqlite` with 129 synthetic transactions (14 Indian cardholders, 19 merchants), alerts, cardholder messages and the shipped model.
@@ -101,7 +101,7 @@ Protocol: drop exact duplicates; chronological 60/20/20 split; candidates compar
 
 ## Development
 ```bash
-uvicorn app.main:app --reload --port 8000      # API
+python -m uvicorn app.main:app --reload --port 8000      # API
 cd frontend && npm run dev                      # UI on :5173, /api proxied to :8000
 ```
 
